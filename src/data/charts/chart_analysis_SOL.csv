@@ -1,0 +1,20 @@
+symbol,timeframe,signal,confidence,price,reasoning,timestamp,market_regime,direction,volume_trend
+SOL,4h,SELL,75,0.0,"Strong downtrend, price below EMAs with high volume sell-off",1743635041.37867,NEUTRAL,SIDEWAYS,Unknown
+SOL,4h,NOTHING,60,0.0,"Mixed signals: MACD bullish crossover but RSI neutral, price below 50EMA",1743813431.052687,NEUTRAL,SIDEWAYS,Decreasing
+SOL,1d,NOTHING,65,0.0,Mixed signals: Price below EMAs (bearish) but MACD convergence (potential momentum shift),1743813450.778038,SIDEWAYS,SIDEWAYS,Decreasing
+SOL,4h,NOTHING,60,0.0,"Mixed signals: MACD bullish crossover but price below key EMAs, low volume",1743841632.367161,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,NOTHING,60,0.0,"Mixed signals: MACD bullish crossover but RSI neutral, price below 50EMA",1743842285.242595,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,NOTHING,55,0.0,"Mixed signals: Neutral RSI, MACD near crossover, price below key EMAs",1743881134.43945,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,NOTHING,60,0.0,"Mixed signals: MACD bullish crossover but price below key EMAs, neutral RSI",1743898848.157119,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,NOTHING,55,0.0,"Mixed signals: RSI neutral, MACD negative but improving, price below key EMAs",1743904947.967989,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,NOTHING,55,0.0,"Mixed signals: MACD bullish crossover but price below key EMAs, decreasing volume",1743905793.305901,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,SELL,70,0.0,Oversold RSI but price below all EMAs with MACD bearish divergence,1743974726.324487,NEUTRAL,BEARISH,Decreasing
+SOL,1d,SELL,70,0.0,"Price below all EMAs, MACD bearish, RSI near oversold but no reversal signs",1743974747.723486,NEUTRAL,BEARISH,Increasing
+SOL,4h,SELL,70,0.0,"Price below key EMAs, bearish MACD, oversold RSI with increasing volume",1743975238.155179,NEUTRAL,BEARISH,Increasing
+SOL,1d,SELL,70,0.0,Price below key EMAs with bearish MACD crossover,1743975257.569323,NEUTRAL,BEARISH,Increasing
+SOL,4h,SELL,75,0.0,"Price below all EMAs, RSI oversold, MACD bearish divergence",1744003952.029806,NEUTRAL,BEARISH,Increasing
+SOL,1d,NOTHING,65,0.0,"Oversold RSI but no bullish confirmation, price below key EMAs",1744004001.909428,NEUTRAL,SIDEWAYS,Decreasing
+SOL,4h,BUY,65,0.0,"Price rebound with rising RSI/MACD, volume confirms strength",1744066592.293188,STRONG_TREND,BULLISH,Increasing
+SOL,1d,SELL,65,0.0,"Oversold RSI but price below key EMAs, bearish MACD crossover, high volume drop",1744066619.647426,NEUTRAL,BEARISH,Increasing
+SOL,4h,SELL,70,103.92,"Price below key EMAs, MACD negative, strong downtrend with low RSI",1744142827.344564,STRONG_TREND,BEARISH,Decreasing
+SOL,1d,SELL,70,103.87,"Oversold RSI but downtrend confirmed by EMAs, MACD bearish, high volume sell-off",1744142866.341565,VOLATILE_BREAKOUT,BEARISH,Increasing

@@ -1,0 +1,57 @@
+{
+  "mode": false,
+  "data": {
+    "mode": false,
+    "data": {
+      "242p259rfsb9J3X3mhnWw35UM2hfMDg14G47CQ66s9ZW": [
+        {
+          "mint": "VFdxjTdFzXrYr3ivWyf64NuXo9U7vdPK7AG7idnNZJV",
+          "amount": 3189.961,
+          "decimals": 6,
+          "raw_amount": 3189961000,
+          "timestamp": "2025-03-19T18:34:42.497274"
+        },
+        {
+          "mint": "CR2L1ob96JGWQkdFbt8rLwqdLLmqFwjcNGL2eFBn1RPt",
+          "amount": 35000.0,
+          "decimals": 9,
+          "raw_amount": 35000000000000,
+          "timestamp": "2025-03-19T18:34:43.733682"
+        },
+        {
+          "mint": "2HdzfUiFWfZHZ544ynffeneuibbDK6biCdjovejr8ez9",
+          "amount": 4746.854488,
+          "decimals": 6,
+          "raw_amount": 4746854488,
+          "timestamp": "2025-03-19T18:34:44.974708"
+        },
+        {
+          "mint": "C94njgTrKMQBmgqe23EGLrtPgfvcjWtqBBvGQ7Cjiank",
+          "amount": 25345.544,
+          "decimals": 9,
+          "raw_amount": 25345544000000,
+          "timestamp": "2025-03-19T18:34:46.223980"
+        }
+      ],
+      "FXzJ6xwH2HfdKshERVAYiLh79PAUw9zC7ucngupt91ap": [
+        {
+          "mint": "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",
+          "amount": 1954718.160026,
+          "decimals": 6,
+          "raw_amount": 1954718160026,
+          "timestamp": "2025-03-19T18:34:48.904198"
+        }
+      ]
+    }
+  },
+  "previous_monitored_tokens": [
+    "VFdxjTdFzXrYr3ivWyf64NuXo9U7vdPK7AG7idnNZJV",
+    "CR2L1ob96JGWQkdFbt8rLwqdLLmqFwjcNGL2eFBn1RPt",
+    "2HdzfUiFWfZHZ544ynffeneuibbDK6biCdjovejr8ez9",
+    "C94njgTrKMQBmgqe23EGLrtPgfvcjWtqBBvGQ7Cjiank",
+    "67mTTGnVRunoSLGitgRGK2FJp5cT1KschjzWH9zKc3r",
+    "9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump",
+    "DayN9FxpLAeiVrFQnRxwjKq7iVQxTieVGybhyXvSpump"
+  ],
+  "timestamp": "2025-03-19T18:34:53.026555"
+}
