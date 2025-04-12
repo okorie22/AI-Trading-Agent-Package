@@ -1,24 +1,44 @@
-symbol,timeframe,signal,confidence,price,reasoning,timestamp,market_regime,direction,volume_trend
-AI16Z,1d,NOTHING,40,0.0,Mixed signals with oversold RSI but price below key EMAs,1743798595.03051,NEUTRAL,SIDEWAYS,Unknown
-AI16Z,4h,NOTHING,60,0.0,"Mixed signals: Oversold RSI but price below key EMAs, MACD negative",1743813386.36677,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,NOTHING,65,0.0,"Price near 24h low with weak indicators (RSI 34, bearish EMAs)",1743813405.09198,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,45,0.0,"Oversold RSI but price below key EMAs, low volume uptick",1743814374.014612,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,NOTHING,65,0.0,"Mixed signals with price below key EMAs, RSI neutral, MACD weak convergence",1743814392.95455,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,45,0.0,"Oversold RSI but bearish EMA alignment, low volume",1743840887.282712,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,55,0.0,"Oversold RSI but price below key EMAs, low volume",1743841094.250758,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,65,0.0,Mixed signals: Oversold RSI but price below key EMAs and bearish MACD,1743841594.037612,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,55,0.0,"Mixed signals: Oversold RSI but price below key EMAs, low volume",1743842250.961818,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,60,0.0,Oversold RSI but downtrend with bearish MACD and low volume,1743881102.206037,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,60,0.0,"Price below key EMAs, RSI near oversold but MACD negative and volume declining",1743898823.095625,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,60,0.0,"Mixed signals: Oversold RSI but price below key EMAs, MACD bearish",1743904920.130146,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,SELL,65,0.0,"Price below key EMAs, MACD bearish, RSI near oversold but no reversal signal",1743905732.653804,NEUTRAL,BEARISH,Decreasing
-AI16Z,4h,NOTHING,55,0.0,Oversold RSI but price below key EMAs and weak MACD confluence,1743974645.135466,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,SELL,65,0.0,"Oversold RSI but strong downtrend, price below key EMAs, MACD bearish",1743974677.657683,NEUTRAL,BEARISH,Decreasing
-AI16Z,4h,NOTHING,70,0.0,Oversold RSI but price below key EMAs in downtrend,1743975176.386021,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,NOTHING,65,0.0,Mixed signals: Oversold RSI but price below key EMAs and weak volume,1743975194.848472,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,65,0.0,Oversold RSI but price below key EMAs and neutral volume,1744003861.671542,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,NOTHING,45,0.0,Oversold RSI but downtrend with bearish EMA/MACD alignment,1744003924.152185,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,65,0.0,"Price below key EMAs, weak volume, mixed MACD/RSI signals",1744066537.067675,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,NOTHING,60,0.0,Oversold RSI near support but downtrend persists below key EMAs,1744066567.174578,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,4h,NOTHING,60,0.10861,"Mixed signals: Price below EMAs, neutral RSI, decreasing volume",1744142766.427623,NEUTRAL,SIDEWAYS,Decreasing
-AI16Z,1d,NOTHING,65,0.10861,Oversold RSI but bearish MACD and price below key EMAs,1744142798.534451,NEUTRAL,SIDEWAYS,Decreasing
+symbol,timeframe,signal,confidence,price,reasoning,timestamp,market_regime,direction,volume_trend,entry_price,historical_accuracy,recommendation_performance
+AI16Z,1d,NOTHING,40,0.0,Mixed signals with oversold RSI but price below key EMAs,1743798595.03051,NEUTRAL,SIDEWAYS,Unknown,0.0,,
+AI16Z,4h,NOTHING,60,0.0,"Mixed signals: Oversold RSI but price below key EMAs, MACD negative",1743813386.36677,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,1d,NOTHING,65,0.0,"Price near 24h low with weak indicators (RSI 34, bearish EMAs)",1743813405.09198,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,45,0.0,"Oversold RSI but price below key EMAs, low volume uptick",1743814374.014612,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,1d,NOTHING,65,0.0,"Mixed signals with price below key EMAs, RSI neutral, MACD weak convergence",1743814392.95455,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,45,0.0,"Oversold RSI but bearish EMA alignment, low volume",1743840887.282712,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,55,0.0,"Oversold RSI but price below key EMAs, low volume",1743841094.250758,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,65,0.0,Mixed signals: Oversold RSI but price below key EMAs and bearish MACD,1743841594.037612,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,55,0.0,"Mixed signals: Oversold RSI but price below key EMAs, low volume",1743842250.961818,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,60,0.0,Oversold RSI but downtrend with bearish MACD and low volume,1743881102.206037,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,60,0.0,"Price below key EMAs, RSI near oversold but MACD negative and volume declining",1743898823.095625,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,60,0.0,"Mixed signals: Oversold RSI but price below key EMAs, MACD bearish",1743904920.130146,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,SELL,65,0.0,"Price below key EMAs, MACD bearish, RSI near oversold but no reversal signal",1743905732.653804,NEUTRAL,BEARISH,Decreasing,0.0,,
+AI16Z,4h,NOTHING,55,0.0,Oversold RSI but price below key EMAs and weak MACD confluence,1743974645.135466,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,1d,SELL,65,0.0,"Oversold RSI but strong downtrend, price below key EMAs, MACD bearish",1743974677.657683,NEUTRAL,BEARISH,Decreasing,0.0,,
+AI16Z,4h,NOTHING,70,0.0,Oversold RSI but price below key EMAs in downtrend,1743975176.386021,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,1d,NOTHING,65,0.0,Mixed signals: Oversold RSI but price below key EMAs and weak volume,1743975194.848472,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,65,0.0,Oversold RSI but price below key EMAs and neutral volume,1744003861.671542,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,1d,NOTHING,45,0.0,Oversold RSI but downtrend with bearish EMA/MACD alignment,1744003924.152185,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,65,0.0,"Price below key EMAs, weak volume, mixed MACD/RSI signals",1744066537.067675,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,1d,NOTHING,60,0.0,Oversold RSI near support but downtrend persists below key EMAs,1744066567.174578,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+AI16Z,4h,NOTHING,60,0.10861,"Mixed signals: Price below EMAs, neutral RSI, decreasing volume",1744142766.427623,NEUTRAL,SIDEWAYS,Decreasing,0.10861,,
+AI16Z,1d,NOTHING,65,0.10861,Oversold RSI but bearish MACD and price below key EMAs,1744142798.534451,NEUTRAL,SIDEWAYS,Decreasing,0.10861,,
+AI16Z,4h,BUY,65,0.13283,"MACD nearing bullish crossover, RSI neutral, price above 20/50EMA",1744268998.118552,NEUTRAL,BULLISH,Decreasing,0.13283,,
+AI16Z,1d,NOTHING,60,0.13194,Mixed signals: Price below key EMAs but MACD convergence and neutral RSI,1744269118.472954,NEUTRAL,SIDEWAYS,Decreasing,0.13194,,
+AI16Z,4h,NOTHING,60,0.13269,"Overbought RSI with decreasing volume, conflicting MACD crossover",1744354815.095236,VOLATILE_BREAKOUT,SIDEWAYS,Decreasing,0.13269,,
+AI16Z,1d,NOTHING,55,0.13266,"Mixed signals: Price below EMAs, RSI neutral, MACD flat",1744354849.646074,NEUTRAL,SIDEWAYS,Decreasing,0.13266,,
+AI16Z,4h,SELL,65,0.13067,"RSI near overbought, MACD histogram decreasing, price rejection at highs with low volume",1744355635.458255,VOLATILE_BREAKOUT,BEARISH,Decreasing,0.13067,,
+AI16Z,1d,NOTHING,60,0.13067,"Mixed signals: Price below key EMAs, MACD negative, but RSI neutral and BBP mid",1744355685.062704,NEUTRAL,SIDEWAYS,Decreasing,0.13067,,
+AI16Z,4h,SELL,65,0.13055,Price near upper Bollinger Band with bearish divergence in MACD and high RSI,1744355986.432313,VOLATILE_BREAKOUT,BEARISH,Decreasing,0.13055,,
+AI16Z,1d,NOTHING,60,0.13067,"Mixed signals: Price below key EMAs, low RSI, but MACD near crossover.",1744356034.949852,NEUTRAL,SIDEWAYS,Decreasing,0.13067,,
+AI16Z,4h,SELL,65,0.13146,"Overbought RSI, bearish reversal candle, decreasing volume",1744357261.551183,VOLATILE_BREAKOUT,BEARISH,Decreasing,0.13146,,
+AI16Z,1d,NOTHING,65,0.13113,"Mixed signals: Price below key EMAs but RSI neutral, MACD flat",1744357308.549299,NEUTRAL,SIDEWAYS,Decreasing,0.13113,,
+AI16Z,4h,NOTHING,55,0.13046,"Mixed signals with neutral RSI, flat MACD, and decreasing volume",1744359371.039646,NEUTRAL,SIDEWAYS,Decreasing,0.13046,,
+AI16Z,1d,NOTHING,60,0.13047,Mixed signals: Price below key EMAs but MACDh improving.,1744359405.73602,NEUTRAL,SIDEWAYS,Decreasing,0.13047,,
+AI16Z,4h,BUY,65,0.13362,"MACD bullish crossover, rising RSI with increasing volume",1744368287.876863,NEUTRAL,BULLISH,Increasing,0.1285,,
+AI16Z,4h,BUY,65,0.13543,"Price above EMAs with bullish MACD crossover, increasing volume",1744369291.448941,NEUTRAL,BULLISH,Increasing,0.13,,
+AI16Z,4h,NOTHING,65,0.13163,"Mixed signals with neutral RSI, flat MACD, and decreasing volume",1744373113.767132,NEUTRAL,SIDEWAYS,Decreasing,0.127,,
+AI16Z,4h,NOTHING,60,0.13621,"Mixed signals with neutral RSI and flat MACD, volume declining",1744423771.772836,NEUTRAL,SIDEWAYS,Decreasing,0.1298,,
+AI16Z,4h,NOTHING,60,0.14976,"Mixed signals: MACD bullish but RSI near overbought, volume decreasing",1744481703.839584,NEUTRAL,SIDEWAYS,Decreasing,0.14,,
+AI16Z,4h,NOTHING,55,0.1498,Mixed signals with resistance at 100EMA and decreasing volume,1744482277.285941,NEUTRAL,SIDEWAYS,Decreasing,0.14,,
+AI16Z,4h,BUY,65,0.152,"MACD bullish crossover, price above 20/50EMA, RSI <70",1744485539.691719,NEUTRAL,BULLISH,Decreasing,0.145,,
+AI16Z,4h,BUY,60,0.1536,"RSI overbought but MACD bullish, price above key EMAs",1744493499.633413,NEUTRAL,BULLISH,Decreasing,0.145,31.70731707317073,-0.049037375800524696

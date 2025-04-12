@@ -26,6 +26,7 @@ sys.path.append(project_root)
 
 # Now we can import from the src module correctly
 from src.config import *
+from src.config import RISK_CONTINUOUS_MODE, COPYBOT_CONTINUOUS_MODE
 
 # Load environment variables
 load_dotenv()
@@ -51,11 +52,11 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # This stops the "oneDNN" messages.
 ACTIVE_AGENTS = {
     'risk': {
         'active': True,      # Risk management agent
-        'interval': 10     # in minutes
+        'interval': RISK_CHECK_INTERVAL_MINUTES      # in minutes
     },
     'copybot': {
         'active': True,      # CopyBot agent
-        'interval': 5      # in minutes
+        'interval': COPYBOT_INTERVAL_MINUTES  # From config.py (defaults to 5 minutes)
     },
     'dca_staking': {
         'active': True,      # DCA & Staking agent
@@ -91,21 +92,23 @@ def run_agents():
                 
                 # Risk Management
                 if (risk_agent and 
-                    (current_time - last_run['risk']).total_seconds() >= ACTIVE_AGENTS['risk']['interval'] * 60):
+                    (RISK_CONTINUOUS_MODE or  # Run if continuous mode is on
+                     (current_time - last_run['risk']).total_seconds() >= ACTIVE_AGENTS['risk']['interval'] * 60)):
                     info("Running Risk Management...")
                     risk_agent.run()
                     last_run['risk'] = current_time
-                    next_run_time = (current_time + timedelta(minutes=ACTIVE_AGENTS['risk']['interval'])).strftime('%H:%M:%S')
+                    next_run_time = "Continuous Mode" if RISK_CONTINUOUS_MODE else (current_time + timedelta(minutes=ACTIVE_AGENTS['risk']['interval'])).strftime('%H:%M:%S')
                     info(f"Risk Management complete. Next run at: {next_run_time}")
                 
                 # CopyBot Analysis
                 if (copybot_agent and 
-                    (current_time - last_run['copybot']).total_seconds() >= ACTIVE_AGENTS['copybot']['interval'] * 60):
+                    (COPYBOT_CONTINUOUS_MODE or  # Run if continuous mode is on
+                     (current_time - last_run['copybot']).total_seconds() >= ACTIVE_AGENTS['copybot']['interval'] * 60)):  # Or if interval elapsed
                     info("Running CopyBot Portfolio Analysis...")
                     copybot_agent.run_analysis_cycle()
                     last_run['copybot'] = current_time
-                    next_run_time = (current_time + timedelta(minutes=ACTIVE_AGENTS['copybot']['interval'])).strftime('%H:%M:%S')
-                    info(f"CopyBot Analysis complete. Next run at: {next_run_time}")
+                    next_run_str = "Continuous Mode" if COPYBOT_CONTINUOUS_MODE else (current_time + timedelta(minutes=ACTIVE_AGENTS['copybot']['interval'])).strftime('%H:%M:%S')
+                    info(f"CopyBot Analysis complete. Next run at: {next_run_str}")
                 
                 # Chart Analysis
                 if (chart_agent and 

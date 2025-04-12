@@ -1,29 +1,55 @@
-symbol,timeframe,signal,confidence,price,reasoning,timestamp,market_regime,direction,volume_trend
-FART,1d,NOTHING,55,0.0,"Mixed signals with neutral RSI, flat MACD, and price near 100EMA",1743798485.120053,NEUTRAL,SIDEWAYS,Unknown
-FART,4h,NOTHING,60,0.0,Mixed signals: MACD crossover but volume decreasing,1743813325.113023,NEUTRAL,SIDEWAYS,Decreasing
-FART,1d,NOTHING,65,0.0,"Mixed signals with neutral RSI, MACD convergence, decreasing volume",1743813365.76858,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,BUY,65,0.0,"Price above EMAs, MACD bullish crossover, neutral RSI",1743814320.637262,NEUTRAL,BULLISH,Decreasing
-FART,1d,NOTHING,60,0.0,"Mixed signals with neutral RSI, flat MACD, decreasing volume",1743814340.059806,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,BUY,65,0.0,"MACD bullish crossover above EMAs, RSI neutral",1743833439.573082,NEUTRAL,BULLISH,Decreasing
-FART,4h,NOTHING,65,0.0,Mixed signals: MACD bullish crossover but RSI near overbought & decreasing volume,1743840827.826645,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,55,0.0,"Mixed signals: RSI near overbought, MACD positive but volume decreasing",1743841057.525477,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,BUY,65,0.0,"MACD crossover above signal, price above key EMAs",1743841560.323829,NEUTRAL,BULLISH,Decreasing
-FART,4h,BUY,60,0.0,"MACD bullish crossover, price above EMAs",1743842173.10259,NEUTRAL,BULLISH,Decreasing
-FART,4h,NOTHING,70,0.0,"Mixed signals with neutral RSI, weak MACD crossover, decreasing volume",1743881050.848909,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,60,0.0,"Mixed signals: RSI near overbought, MACD positive but volume declining",1743898799.579755,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,60,0.0,"Mixed signals: RSI near overbought, MACD bullish but volume decreasing",1743901212.46411,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,BUY,65,0.0,"MACD above signal line, price above key EMAs",1743902468.487464,NEUTRAL,BULLISH,Decreasing
-FART,4h,NOTHING,60,0.0,Mixed signals with bullish MACD but high RSI and decreasing volume,1743904397.885164,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,60,0.0,Mixed signals with RSI near overbought and MACD positive but volume declining,1743904883.296499,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,58,0.0,"Neutral trend, mixed signals (RSI near overbought vs MACD bullish)",1743905686.033701,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,55,0.0,"Mixed signals: MACD bullish but RSI near overbought, volume decreasing",1743909994.399228,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,NOTHING,50,0.0,"Mixed signals with neutral RSI, flat MACD, and price below EMAs",1743974602.256247,NEUTRAL,SIDEWAYS,Decreasing
-FART,1d,NOTHING,55,0.0,"Mixed signals: RSI neutral, MACD near signal, price near EMAs with volatile swings",1743974627.164521,NEUTRAL,SIDEWAYS,Increasing
-FART,4h,NOTHING,60,0.0,"Mixed signals: Price below EMAs, neutral RSI, MACD near crossover, low volume",1743975093.224949,NEUTRAL,SIDEWAYS,Decreasing
-FART,1d,NOTHING,55,0.0,"Mixed signals: MACD bearish crossover, RSI neutral, price below 20EMA",1743975145.929314,NEUTRAL,SIDEWAYS,Increasing
-FART,4h,NOTHING,55,0.0,"Mixed signals: RSI near oversold but MACD bearish, volume decreasing",1744003797.31238,NEUTRAL,SIDEWAYS,Decreasing
-FART,1d,NOTHING,55,0.0,"Mixed signals with flat MACD, neutral RSI, and decreasing volume",1744003819.830055,NEUTRAL,SIDEWAYS,Decreasing
-FART,4h,BUY,70,0.0,"Price above EMAs, MACD bullish crossover, RSI rising but not overbought",1744066461.239175,NEUTRAL,BULLISH,Decreasing
-FART,1d,BUY,70,0.0,"Price above EMAs, MACD bullish crossover, rising volume",1744066518.505364,NEUTRAL,BULLISH,Increasing
-FART,4h,NOTHING,65,0.55567,"Mixed signals: Price above EMAs but MACD momentum waning, RSI neutral, low volume",1744142699.300685,NEUTRAL,SIDEWAYS,Decreasing
-FART,1d,BUY,65,0.55226,"MACD bullish crossover above signal line, price above rising 20/50EMA",1744142735.442914,NEUTRAL,BULLISH,Increasing
+symbol,timeframe,signal,confidence,price,reasoning,timestamp,market_regime,direction,volume_trend,entry_price,historical_accuracy,recommendation_performance
+FART,1d,NOTHING,55,0.0,"Mixed signals with neutral RSI, flat MACD, and price near 100EMA",1743798485.120053,NEUTRAL,SIDEWAYS,Unknown,0.0,,
+FART,4h,NOTHING,60,0.0,Mixed signals: MACD crossover but volume decreasing,1743813325.113023,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,1d,NOTHING,65,0.0,"Mixed signals with neutral RSI, MACD convergence, decreasing volume",1743813365.76858,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,BUY,65,0.0,"Price above EMAs, MACD bullish crossover, neutral RSI",1743814320.637262,NEUTRAL,BULLISH,Decreasing,0.0,,
+FART,1d,NOTHING,60,0.0,"Mixed signals with neutral RSI, flat MACD, decreasing volume",1743814340.059806,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,BUY,65,0.0,"MACD bullish crossover above EMAs, RSI neutral",1743833439.573082,NEUTRAL,BULLISH,Decreasing,0.0,,
+FART,4h,NOTHING,65,0.0,Mixed signals: MACD bullish crossover but RSI near overbought & decreasing volume,1743840827.826645,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,55,0.0,"Mixed signals: RSI near overbought, MACD positive but volume decreasing",1743841057.525477,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,BUY,65,0.0,"MACD crossover above signal, price above key EMAs",1743841560.323829,NEUTRAL,BULLISH,Decreasing,0.0,,
+FART,4h,BUY,60,0.0,"MACD bullish crossover, price above EMAs",1743842173.10259,NEUTRAL,BULLISH,Decreasing,0.0,,
+FART,4h,NOTHING,70,0.0,"Mixed signals with neutral RSI, weak MACD crossover, decreasing volume",1743881050.848909,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,60,0.0,"Mixed signals: RSI near overbought, MACD positive but volume declining",1743898799.579755,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,60,0.0,"Mixed signals: RSI near overbought, MACD bullish but volume decreasing",1743901212.46411,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,BUY,65,0.0,"MACD above signal line, price above key EMAs",1743902468.487464,NEUTRAL,BULLISH,Decreasing,0.0,,
+FART,4h,NOTHING,60,0.0,Mixed signals with bullish MACD but high RSI and decreasing volume,1743904397.885164,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,60,0.0,Mixed signals with RSI near overbought and MACD positive but volume declining,1743904883.296499,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,58,0.0,"Neutral trend, mixed signals (RSI near overbought vs MACD bullish)",1743905686.033701,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,55,0.0,"Mixed signals: MACD bullish but RSI near overbought, volume decreasing",1743909994.399228,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,NOTHING,50,0.0,"Mixed signals with neutral RSI, flat MACD, and price below EMAs",1743974602.256247,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,1d,NOTHING,55,0.0,"Mixed signals: RSI neutral, MACD near signal, price near EMAs with volatile swings",1743974627.164521,NEUTRAL,SIDEWAYS,Increasing,0.0,,
+FART,4h,NOTHING,60,0.0,"Mixed signals: Price below EMAs, neutral RSI, MACD near crossover, low volume",1743975093.224949,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,1d,NOTHING,55,0.0,"Mixed signals: MACD bearish crossover, RSI neutral, price below 20EMA",1743975145.929314,NEUTRAL,SIDEWAYS,Increasing,0.0,,
+FART,4h,NOTHING,55,0.0,"Mixed signals: RSI near oversold but MACD bearish, volume decreasing",1744003797.31238,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,1d,NOTHING,55,0.0,"Mixed signals with flat MACD, neutral RSI, and decreasing volume",1744003819.830055,NEUTRAL,SIDEWAYS,Decreasing,0.0,,
+FART,4h,BUY,70,0.0,"Price above EMAs, MACD bullish crossover, RSI rising but not overbought",1744066461.239175,NEUTRAL,BULLISH,Decreasing,0.0,,
+FART,1d,BUY,70,0.0,"Price above EMAs, MACD bullish crossover, rising volume",1744066518.505364,NEUTRAL,BULLISH,Increasing,0.0,,
+FART,4h,NOTHING,65,0.55567,"Mixed signals: Price above EMAs but MACD momentum waning, RSI neutral, low volume",1744142699.300685,NEUTRAL,SIDEWAYS,Decreasing,0.55567,,
+FART,1d,BUY,65,0.55226,"MACD bullish crossover above signal line, price above rising 20/50EMA",1744142735.442914,NEUTRAL,BULLISH,Increasing,0.55226,,
+FART,4h,BUY,65,0.73446,"Price above key EMAs, MACD bullish crossover",1744268881.055183,NEUTRAL,BULLISH,Decreasing,0.73446,,
+FART,1d,BUY,70,0.73313,Strong uptrend with MACD above signal line and price above key EMAs,1744268945.104175,STRONG_TREND,BULLISH,Decreasing,0.73313,,
+FART,4h,SELL,65,0.88148,Overbought RSI (80.39) with decreasing volume divergence,1744354743.997877,NEUTRAL,BEARISH,Decreasing,0.88148,,
+FART,1d,BUY,75,0.87871,"Strong uptrend with MACD bullish crossover, 20EMA > 50EMA, and STRONG_TREND regime",1744354777.36567,STRONG_TREND,BULLISH,Decreasing,0.87871,,
+FART,4h,BUY,70,0.87507,"Strong uptrend with bullish EMA/MACD crossover, overbought RSI but sustained momentum",1744355451.738717,NEUTRAL,BULLISH,Decreasing,0.87507,,
+FART,1d,BUY,70,0.87455,Strong uptrend with bullish MACD crossover above signal line,1744355548.423309,STRONG_TREND,BULLISH,Decreasing,0.87455,,
+FART,4h,BUY,65,0.87205,"Price above EMAs with bullish MACD crossover, though RSI overbought",1744355876.514985,NEUTRAL,BULLISH,Decreasing,0.87205,,
+FART,1d,BUY,70,0.8709,"Strong uptrend with bullish MACD crossover, price above rising EMAs, RSI overbought but valid in trend regime",1744355934.672077,STRONG_TREND,BULLISH,Decreasing,0.8709,,
+FART,4h,SELL,65,0.8665,Overbought RSI (79.85) with price near 24h High,1744356689.178462,NEUTRAL,BEARISH,Decreasing,0.8665,,
+FART,4h,SELL,65,0.87069,Overbought RSI (80) with decreasing volume divergence,1744356896.911554,NEUTRAL,BEARISH,Decreasing,0.87069,,
+FART,1d,BUY,75,0.87645,Strong uptrend with MACD bullish crossover and price above key EMAs,1744356933.614936,STRONG_TREND,BULLISH,Decreasing,0.87645,,
+FART,1d,BUY,75,0.87568,"Strong uptrend with price above key EMAs, MACD bullish crossover",1744357116.175566,STRONG_TREND,BULLISH,Decreasing,0.87568,,
+FART,4h,SELL,65,0.87291,Overbought RSI (80.11) with bearish volume divergence,1744357486.283342,NEUTRAL,BEARISH,Decreasing,0.87291,,
+FART,1d,BUY,70,0.87188,"Strong uptrend, MACD bullish crossover above signal line",1744357605.145854,STRONG_TREND,BULLISH,Decreasing,0.87188,,
+FART,4h,SELL,65,0.85676,"Overbought RSI, bearish MACD divergence, decreasing volume",1744359290.361409,NEUTRAL,BEARISH,Decreasing,0.85676,,
+FART,1d,BUY,70,0.85157,"Strong uptrend with price above EMAs, MACD bullish crossover, RSI high but in trend",1744359320.818611,STRONG_TREND,BULLISH,Decreasing,0.85157,,
+FART,4h,NOTHING,65,0.85728,Overbought RSI (80) & bullish exhaustion signals amid neutral regime,1744359855.775564,NEUTRAL,SIDEWAYS,Decreasing,0.85728,,
+FART,1d,BUY,75,0.85508,"Strong uptrend, MACD bullish crossover, price above EMAs",1744359904.308284,STRONG_TREND,BULLISH,Decreasing,0.85508,,
+FART,4h,SELL,65,0.92135,Overbought RSI (82.71) with bearish volume divergence,1744368205.561644,NEUTRAL,BEARISH,Decreasing,0.93,,
+FART,4h,SELL,70,0.88093,Overbought RSI (81.55) with decreasing volume,1744369193.159344,NEUTRAL,BEARISH,Decreasing,0.93,,
+FART,4h,NOTHING,65,0.86513,"Overbought RSI, decreasing volume, mixed signals",1744373036.745426,NEUTRAL,SIDEWAYS,Decreasing,0.84,,
+FART,4h,BUY,65,0.8717,"Uptrend above key EMAs, near BB support",1744423730.948721,NEUTRAL,BULLISH,Decreasing,0.84,,
+FART,4h,NOTHING,60,0.92443,"Mixed signals with high RSI, decreasing volume, neutral MACD",1744481672.127102,NEUTRAL,SIDEWAYS,Decreasing,0.85,,
+FART,4h,BUY,65,0.93502,"Price above EMAs, MACD bullish",1744482188.537955,NEUTRAL,BULLISH,Decreasing,0.89,,
+FART,4h,SELL,65,0.93946,"RSI overbought, MACD divergence, decreasing volume",1744485494.453112,NEUTRAL,BEARISH,Decreasing,0.96,,
+FART,4h,SELL,60,0.92489,Overbought RSI (73.23) & weakening MACD momentum,1744493448.264094,NEUTRAL,BEARISH,Decreasing,0.934,30.76923076923077,inf

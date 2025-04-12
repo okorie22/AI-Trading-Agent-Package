@@ -22,6 +22,7 @@ from src.agents.base_agent import BaseAgent
 import traceback
 import re
 from src.scripts.logger import logger, debug, info, warning, error, critical, system
+from src.scripts.token_list_tool import TokenAccountTracker
 
 # Import leverage utilities if available
 try:
@@ -33,6 +34,78 @@ except ImportError:
 
 # Load environment variables
 load_dotenv()
+
+# Import settings from config
+from src.config import (
+    address, usd_size, max_usd_order_size, slippage,
+    EXCLUDED_TOKENS, MONITORED_TOKENS, DYNAMIC_MODE,
+    MAX_LOSS_PERCENT, MAX_GAIN_PERCENT, 
+    MAX_LOSS_USD, MAX_GAIN_USD,
+    MINIMUM_BALANCE_USD, USE_AI_CONFIRMATION,
+    USE_PERCENTAGE
+)
+
+# Try importing models for AI
+try:
+    import anthropic
+    import openai
+    AI_AVAILABLE = True
+except ImportError:
+    AI_AVAILABLE = False
+    warning("AI libraries not available. AI risk assessment will be disabled.")
+
+# Try importing PySide6 for signals
+try:
+    from PySide6.QtCore import QObject, Signal as QtSignal
+    QT_AVAILABLE = True
+except ImportError:
+    # Define dummy QObject and Signal for non-GUI mode
+    QT_AVAILABLE = False
+    
+    class QObject:
+        pass
+
+# Signal implementation that works with or without QT
+class Signal:
+    def __init__(self, *args):
+        self.callbacks = []
+        self.args_spec = args
+        self.qt_object = None
+        
+        if QT_AVAILABLE:
+            # We need a QObject instance to host the signal
+            class SignalQObject(QObject):
+                qt_signal = QtSignal(*args)
+                
+            self.qt_object = SignalQObject()
+    
+    def connect(self, callback):
+        if QT_AVAILABLE and self.qt_object:
+            self.qt_object.qt_signal.connect(callback)
+        else:
+            if callback not in self.callbacks:
+                self.callbacks.append(callback)
+    
+    def emit(self, *args):
+        if QT_AVAILABLE and self.qt_object:
+            self.qt_object.qt_signal.emit(*args)
+        else:
+            for callback in self.callbacks:
+                callback(*args)
+
+# Check for Risk override model settings in config
+try:
+    from src.config import (
+        RISK_MODEL_OVERRIDE,
+        RISK_DEEPSEEK_BASE_URL,
+        RISK_LOSS_CONFIDENCE_THRESHOLD,
+        RISK_GAIN_CONFIDENCE_THRESHOLD
+    )
+except ImportError:
+    RISK_MODEL_OVERRIDE = "0"
+    RISK_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+    RISK_LOSS_CONFIDENCE_THRESHOLD = 90
+    RISK_GAIN_CONFIDENCE_THRESHOLD = 60
 
 class RiskAgent(BaseAgent):
     def __init__(self):
@@ -89,6 +162,11 @@ class RiskAgent(BaseAgent):
         
         self.current_value = self.start_balance
         info("Risk Agent initialized!")
+        
+        # Add order_executed signal if QT is available
+        if QT_AVAILABLE:
+            self.order_executed = Signal(str, str, str, float, float, float, object, str, str, str)
+            # agent_name, action, token, amount, entry_price, exit_price, pnl, wallet_address, mint_address, ai_analysis
         
     def get_all_monitored_tokens(self):
         """Get comprehensive list of tokens to monitor from all sources"""
@@ -466,15 +544,55 @@ class RiskAgent(BaseAgent):
                 
             # Close each monitored position
             for _, row in positions.iterrows():
-                token = row['Mint Address']
+                token_mint = row['Mint Address']
                 value = row['USD Value']
+                entry_price = row['USD Value'] / row['Amount'] if row['Amount'] > 0 else 0
+                amount = row['Amount']
+                token_name = row.get('name', 'Unknown') or token_mint[:8]
+                token_symbol = row.get('Symbol', 'UNK')
                 
-                info(f"\nClosing position: {token} (${value:.2f})")
+                info(f"\nClosing position: {token_name} (${value:.2f})")
+                
+                # Get current price before selling
+                current_price = 0
                 try:
-                    n.chunk_kill(token, max_usd_order_size, slippage)
-                    info(f"Successfully closed position for {token}")
+                    from src.scripts.ohlcv_collector import collect_token_data
+                    token_data = collect_token_data(token_mint)
+                    if token_data is not None and not token_data.empty and 'price' in token_data.columns:
+                        current_price = token_data['price'].iloc[-1]
                 except Exception as e:
-                    error(f"Error closing position for {token}: {str(e)}")
+                    warning(f"Error getting price for {token_name}: {str(e)}")
+                    
+                try:
+                    success = n.chunk_kill(token_mint, max_usd_order_size, slippage)
+                    
+                    if success:
+                        info(f"Successfully closed position for {token_name}")
+                        
+                        # Calculate PnL if we have prices
+                        pnl_value = None
+                        pnl_percent = None
+                        
+                        if entry_price > 0 and current_price > 0:
+                            pnl_value = amount * (current_price - entry_price)
+                            pnl_percent = ((current_price / entry_price) - 1) * 100
+                            
+                        # Emit order signal if QT is available
+                        if QT_AVAILABLE and hasattr(self, 'order_executed'):
+                            # Get risk assessment info for the AI analysis field
+                            risk_analysis = f"Risk Management: Maximum {'loss' if pnl_value < 0 else 'gain'} threshold reached."
+                            
+                            self.order_executed.emit(
+                                "risk", "CLOSE", token_name, amount, 
+                                entry_price, current_price,
+                                (pnl_value, pnl_percent) if pnl_value is not None else None,
+                                "", token_mint, risk_analysis
+                            )
+                    else:
+                        error(f"Error closing position for {token_name}")
+                        
+                except Exception as e:
+                    error(f"Error closing position for {token_name}: {str(e)}")
                     
             info("\nAll monitored positions closed")
             

@@ -41,11 +41,59 @@ load_dotenv()
 # Import AI prompt from config
 from src.config import DCA_AI_PROMPT, AI_MODEL, AI_TEMPERATURE, AI_MAX_TOKENS
 
-class DCAAgent:
+# Import QT Signal if available
+try:
+    from PySide6.QtCore import QObject, Signal as QtSignal
+    QT_AVAILABLE = True
+except ImportError:
+    QT_AVAILABLE = False
+    
+    class QObject:
+        pass
+    
+# Signal implementation that works with or without QT
+class Signal:
+    def __init__(self, *args):
+        self.callbacks = []
+        self.args_spec = args
+        self.qt_object = None
+        
+        if QT_AVAILABLE:
+            # We need a QObject instance to host the signal
+            class SignalQObject(QObject):
+                qt_signal = QtSignal(*args)
+                
+            self.qt_object = SignalQObject()
+    
+    def connect(self, callback):
+        if QT_AVAILABLE and self.qt_object:
+            self.qt_object.qt_signal.connect(callback)
+        else:
+            if callback not in self.callbacks:
+                self.callbacks.append(callback)
+    
+    def emit(self, *args):
+        if QT_AVAILABLE and self.qt_object:
+            self.qt_object.qt_signal.emit(*args)
+        else:
+            for callback in self.callbacks:
+                callback(*args)
+
+class DCAAgent(QObject if QT_AVAILABLE else object):
     def __init__(self, fixed_dca_amount=None):
         """Initialize the DCA Agent."""
+        super().__init__()
         self.staking_allocation_percentage = STAKING_ALLOCATION_PERCENTAGE  # From config.py
         self.dca_interval_minutes = DCA_INTERVAL_MINUTES  # From config.py
+        
+        # Load new interval settings
+        self.dca_interval_unit = getattr(sys.modules['src.config'], 'DCA_INTERVAL_UNIT', "Hour(s)")
+        self.dca_interval_value = getattr(sys.modules['src.config'], 'DCA_INTERVAL_VALUE', 12)
+        
+        # Load scheduled time settings
+        self.dca_run_at_enabled = getattr(sys.modules['src.config'], 'DCA_RUN_AT_ENABLED', False)
+        self.dca_run_at_time = getattr(sys.modules['src.config'], 'DCA_RUN_AT_TIME', "09:00")
+        
         self.max_volatility_threshold = MAX_VOLATILITY_THRESHOLD  # From config.py
         self.trend_awareness_threshold = TREND_AWARENESS_THRESHOLD  # From config.py
         self.take_profit_percentage = TAKE_PROFIT_PERCENTAGE  # From config.py
@@ -54,6 +102,8 @@ class DCAAgent:
         self.ai_temperature = AI_TEMPERATURE  # Use centralized config value 
         self.ai_max_tokens = AI_MAX_TOKENS  # Use centralized config value
         self.yield_optimization_interval = YIELD_OPTIMIZATION_INTERVAL  # From config.py
+        self.yield_optimization_interval_unit = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_INTERVAL_UNIT', "Hour(s)")
+        self.yield_optimization_interval_value = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_INTERVAL_VALUE', 1)
         self.dca_monitored_tokens = DCA_MONITORED_TOKENS  # Specific tokens for DCA Agent
         
         # Load additional config values with defaults if not present
@@ -61,7 +111,10 @@ class DCAAgent:
         self.min_conversion_amount = getattr(sys.modules['src.config'], 'MIN_CONVERSION_AMOUNT', 5)
         self.max_convert_percentage = getattr(sys.modules['src.config'], 'MAX_CONVERT_PERCENTAGE', 25)
         self.staking_protocols = getattr(sys.modules['src.config'], 'STAKING_PROTOCOLS', ["marinade", "lido"])
-
+        
+        # Last run information for scheduled runs
+        self.last_run_day = None
+        
         # Validate address is set
         if not address:
             warning("WARNING: No wallet address configured in config.py")
@@ -77,6 +130,15 @@ class DCAAgent:
             info("Some AI functionality may not be available")
 
         info("Moon Dev's DCA Agent initialized!")
+
+        # Add signal if QT is available
+        if QT_AVAILABLE:
+            self.order_executed = Signal(str, str, str, float, float, float, object, str, str, str)
+            # agent_name, action, token, amount, entry_price, exit_price, pnl, wallet_address, mint_address, ai_analysis
+
+        # Load scheduled time settings for yield optimization
+        self.yield_optimization_run_at_enabled = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_RUN_AT_ENABLED', False)
+        self.yield_optimization_run_at_time = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_RUN_AT_TIME', "09:00")
 
     def get_staking_rewards_and_apy(self):
         """Get SOL staking rewards and APY data from different protocols"""
@@ -547,26 +609,36 @@ class DCAAgent:
             info("Fetching current SOL staking rewards and APY data...")
             staking_data, staking_rewards = self.get_staking_rewards_and_apy()
             
-            if staking_data:
-                info(f"Found SOL staking rewards: {staking_data}")
-            else:
-                info("No SOL staking rewards found")
-                
-            info(f"Current best SOL staking APY: {sum(staking_data.values()):.2f}%")
+            # 2. Get AI recommendations (new addition)
+            ai_recommendation = None
+            try:
+                # Only use AI if model and keys are configured
+                if all([self.ai_model, os.getenv("ANTHROPIC_KEY"), os.getenv("OPENAI_KEY")]):
+                    ai_recommendation = self.get_ai_staking_advice()
+                    if ai_recommendation:
+                        info("Using AI recommendation for staking optimization")
+                        
+                        # Potentially override protocol selection based on AI
+                        if ai_recommendation["protocol"] and ai_recommendation["protocol"] in self.staking_protocols:
+                            info(f"AI recommends using {ai_recommendation['protocol']} staking protocol")
+                            
+                        # Potentially update staking allocation percentage based on AI
+                        if ai_recommendation["allocation"] and 0 <= ai_recommendation["allocation"] <= 100:
+                            if abs(ai_recommendation["allocation"] - self.staking_allocation_percentage) > 5:
+                                info(f"AI recommends changing allocation from {self.staking_allocation_percentage}% to {ai_recommendation['allocation']}%")
+                                # Consider using: self.staking_allocation_percentage = ai_recommendation["allocation"]
+                        
+                        # Consider auto-convert based on AI recommendation
+                        if ai_recommendation["convert"] != None:
+                            info(f"AI {'recommends' if ai_recommendation['convert'] else 'does not recommend'} converting tokens to SOL")
+            except Exception as e:
+                warning(f"Error processing AI recommendation: {str(e)}")
+                info("Continuing with standard yield optimization")
             
-            # 2. Get current staking mode
-            staking_mode = getattr(sys.modules['src.config'], 'STAKING_MODE', "separate")
-            info(f"Current staking mode: {staking_mode}")
-            
-            # 3. Check if token conversion is needed (for 'auto_convert' mode)
-            info("Checking if token conversion to SOL is needed...")
-            if staking_mode == "auto_convert":
-                self._auto_convert_for_staking()
-            
-            # 4. Make yield decision
+            # 3. Make yield decision
             info(f"YIELD DECISION: SOL staking (APY: {sum(staking_data.values()):.2f}%)")
             
-            # 5. Reinvest staking rewards if available
+            # 4. Reinvest staking rewards if available
             if staking_rewards > 0:
                 info(f"Reinvesting SOL staking rewards: {staking_rewards}")
                 success = self.reinvest_staking_rewards(staking_rewards)
@@ -634,46 +706,30 @@ class DCAAgent:
                             # Extract action, confidence and entry price
                             action = latest.get('signal', 'NEUTRAL')
                             confidence = latest.get('confidence', 50)
+                            current_price = latest.get('price', 0)
                             
-                            # Try to find entry price in the CSV
+                            # Explicitly check for entry_price first
                             entry_price = None
-                            if 'entry_price' in latest:
+                            if 'entry_price' in latest and not pd.isna(latest['entry_price']):
                                 entry_price = latest['entry_price']
-                                debug(f"Found entry price in standard column: ${entry_price}", file_only=True)
-                            elif 'price' in latest:
-                                entry_price = latest['price']
-                                debug(f"Found price in price column: ${entry_price}", file_only=True)
+                                info(f"{symbol}: Using entry_price (${entry_price:.6f}) from chart analysis for limit orders")
                             else:
-                                # Try to find any numeric column that might have price
-                                numeric_cols = df.select_dtypes(include=['number']).columns
-                                price_cols = [col for col in numeric_cols if 'price' in col.lower()]
-                                
-                                if price_cols:
-                                    price_col = price_cols[0]
-                                    entry_price = latest[price_col]
-                                    debug(f"Found price in '{price_col}' column: ${entry_price}", file_only=True)
-                                else:
-                                    # Final fallback - use the first numeric column
-                                    if numeric_cols.size > 0:
-                                        price_col = numeric_cols[0]
-                                        entry_price = latest[price_col]
-                                        debug(f"Using first numeric column '{price_col}' for price: ${entry_price}", file_only=True)
+                                # Fall back to current price if entry_price not available
+                                entry_price = current_price
+                                warning(f"{symbol}: No entry_price found, using current price (${current_price:.6f}) instead")
                             
-                            # If entry price is still None, get current price
-                            if entry_price is None or pd.isna(entry_price):
-                                entry_price = n.token_price(token_address)
-                            
-                            # Store the recommendation
+                            # Store the recommendation with both prices
                             all_recommendations[token_address] = {
                                 'symbol': symbol,
                                 'action': action,
                                 'confidence': confidence,
-                                'entry_price': entry_price,
+                                'price': current_price,           # Current market price
+                                'entry_price': entry_price,       # Optimal entry price (for limit orders)
                                 'analysis': latest.get('reasoning', ''),
                                 'timestamp': latest.get('timestamp', int(time.time()))
                             }
                     
-                            info(f"Created recommendation for {symbol}: {action} (confidence: {confidence}%)")
+                            info(f"Created recommendation for {symbol}: {action} (confidence: {confidence}%), Entry: ${entry_price:.6f}")
                             
                 except Exception as e:
                     warning(f"Error processing file {file.name}: {str(e)}")
@@ -1233,74 +1289,195 @@ class DCAAgent:
             # Set up logging to file
             log_file = logs_dir / f"dca_staking_{int(time.time())}.log"
             
-            # First run
-            try:
-                self.run_dca_cycle()
-                consecutive_failures = 0
-            except Exception as e:
-                consecutive_failures += 1
-                error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                error_msg = f"[{error_time}]  Error in DCA cycle: {str(e)}"
-                info(error_msg)
-                
-                # Log error to file
-                with open(log_file, 'a') as f:
-                    f.write(f"{error_msg}\n")
-                    
-                if consecutive_failures >= max_consecutive_failures:
-                    info(" Too many consecutive failures, agent will pause for an hour")
-                    time.sleep(3600)  # Sleep for an hour before retrying
+            # First run - only if scheduled time is not enabled or current time matches scheduled time
+            if not self.should_wait_for_scheduled_time():
+                try:
+                    self.run_dca_cycle()
                     consecutive_failures = 0
+                except Exception as e:
+                    consecutive_failures += 1
+                    error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    error_msg = f"[{error_time}]  Error in DCA cycle: {str(e)}"
+                    info(error_msg)
+                    
+                    # Log error to file
+                    with open(log_file, 'a') as f:
+                        f.write(f"{error_msg}\n")
+                        
+                    if consecutive_failures >= max_consecutive_failures:
+                        info(" Too many consecutive failures, agent will pause for an hour")
+                        time.sleep(3600)  # Sleep for an hour before retrying
+                        consecutive_failures = 0
+            else:
+                scheduled_time = self.dca_run_at_time
+                info(f" Agent will wait until {scheduled_time} to run the first DCA cycle...")
             
             # If continuous mode is enabled, keep running at intervals
             if continuous_mode:
                 while True:
-                    next_run_time = datetime.now() + timedelta(minutes=self.dca_interval_minutes)
+                    # Calculate next run time based on interval
+                    current_time = datetime.now()
+                    
+                    # If scheduled time is enabled, calculate the next run based on scheduled time
+                    if self.dca_run_at_enabled:
+                        next_run_time = self.get_next_scheduled_run_time()
+                        wait_seconds = (next_run_time - current_time).total_seconds()
+                    else:
+                        # Otherwise use the interval setting
+                        wait_seconds = self.dca_interval_minutes * 60
+                        next_run_time = current_time + timedelta(seconds=wait_seconds)
+                    
                     info(f"\n Sleeping until {next_run_time.strftime('%Y-%m-%d %H:%M:%S')} before next cycle...")
                     
+                    # Wait until the next scheduled run time
                     try:
-                        time.sleep(self.dca_interval_minutes * 60)
+                        # If the wait is more than an hour, run hourly yield optimization
+                        if wait_seconds > 3600:
+                            # Sleep in hourly chunks for yield optimization
+                            hours_to_wait = int(wait_seconds / 3600)
+                            for i in range(hours_to_wait):
+                                if self.should_run_now():  # Check if it's time to run
+                                    break
+                                info(f" Running hourly yield optimization ({i+1}/{hours_to_wait})")
+                                self.optimize_yield()
+                                # Sleep for up to an hour, but wake up if we hit the scheduled time
+                                seconds_to_sleep = min(3600, wait_seconds - (i * 3600))
+                                self.smart_sleep(seconds_to_sleep)
+                        else:
+                            # Just wait the remaining time
+                            self.smart_sleep(wait_seconds)
                     except KeyboardInterrupt:
                         info("\n DCA Staking Agent shutting down gracefully...")
                         break
-                        
-                    # Run yield optimization more frequently
-                    for i in range(max(1, int(self.dca_interval_minutes / 60))):
-                        try:
-                            info(f" Running hourly yield optimization ({i+1}/{int(self.dca_interval_minutes / 60)})")
-                            self.optimize_yield()
-                            time.sleep(60 * 60)  # Sleep for an hour
-                        except KeyboardInterrupt:
-                            info("\n DCA Staking Agent shutting down gracefully...")
-                            return
-                        except Exception as e:
-                            info(f" Error in hourly yield optimization: {str(e)}")
-                            # Continue anyway
                     
-                    # Regular DCA cycle
-                    try:
-                        self.run_dca_cycle()
-                        consecutive_failures = 0
-                    except Exception as e:
-                        consecutive_failures += 1
-                        error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        error_msg = f"[{error_time}]  Error in DCA cycle: {str(e)}"
-                        info(error_msg)
-                        
-                        # Log error to file
-                        with open(log_file, 'a') as f:
-                            f.write(f"{error_msg}\n")
-                            
-                        if consecutive_failures >= max_consecutive_failures:
-                            info(" Too many consecutive failures, agent will pause for recovery")
-                            time.sleep(3600)  # Sleep for an hour before retrying
+                    # Check if it's actually time to run
+                    if self.should_run_now():
+                        # Regular DCA cycle
+                        try:
+                            self.run_dca_cycle()
                             consecutive_failures = 0
+                            # Update last run day if using scheduled runs
+                            if self.dca_run_at_enabled:
+                                self.last_run_day = datetime.now().day
+                        except Exception as e:
+                            consecutive_failures += 1
+                            error_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            error_msg = f"[{error_time}]  Error in DCA cycle: {str(e)}"
+                            info(error_msg)
+                            
+                            # Log error to file
+                            with open(log_file, 'a') as f:
+                                f.write(f"{error_msg}\n")
+                            
+                            if consecutive_failures >= max_consecutive_failures:
+                                info(" Too many consecutive failures, agent will pause for recovery")
+                                time.sleep(3600)  # Sleep for an hour before retrying
+                                consecutive_failures = 0
                 
+                    # Check if yield optimization should run at a specific time
+                    if self.yield_optimization_run_at_enabled and self.should_run_yield_optimization():
+                        info("Running scheduled yield optimization")
+                        self.optimize_yield()
+            
         except KeyboardInterrupt:
             info("\n DCA Staking Agent shutting down gracefully...")
         except Exception as e:
             info(f" Fatal error in DCA agent: {str(e)}")
             info(" Agent has stopped due to errors. Please check logs.")
+
+    def should_wait_for_scheduled_time(self):
+        """Check if we should wait for a scheduled time."""
+        if not self.dca_run_at_enabled:
+            return False
+        
+        # Get current time and scheduled time
+        current_time = datetime.now().time()
+        scheduled_parts = self.dca_run_at_time.split(":")
+        scheduled_hour = int(scheduled_parts[0])
+        scheduled_minute = int(scheduled_parts[1])
+        scheduled_time = datetime.now().replace(hour=scheduled_hour, minute=scheduled_minute, second=0, microsecond=0).time()
+        
+        # If current time is before scheduled time, wait
+        return current_time < scheduled_time
+
+    def get_next_scheduled_run_time(self):
+        """Calculate the next scheduled run time based on the interval and scheduled time."""
+        now = datetime.now()
+        
+        # Parse scheduled time
+        hour, minute = map(int, self.dca_run_at_time.split(":"))
+        scheduled_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        # If the scheduled time has already passed today, move to the next occurrence
+        if scheduled_time < now:
+            # Determine the next occurrence based on interval unit
+            if self.dca_interval_unit == "Hour(s)":
+                # For hourly, just add the interval in hours
+                scheduled_time = now + timedelta(hours=self.dca_interval_value)
+                # Adjust to the exact minute of the scheduled time
+                scheduled_time = scheduled_time.replace(minute=minute, second=0, microsecond=0)
+            elif self.dca_interval_unit == "Day(s)":
+                # For daily, add the number of days
+                scheduled_time = scheduled_time + timedelta(days=self.dca_interval_value)
+            elif self.dca_interval_unit == "Week(s)":
+                # For weekly, add the number of weeks
+                scheduled_time = scheduled_time + timedelta(weeks=self.dca_interval_value)
+            elif self.dca_interval_unit == "Month(s)":
+                # For monthly, add roughly the number of months
+                # This is an approximation
+                month = now.month - 1 + self.dca_interval_value
+                year = now.year + month // 12
+                month = month % 12 + 1
+                day = min(now.day, [31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28, 
+                                    31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month-1])
+                scheduled_time = now.replace(year=year, month=month, day=day, hour=hour, minute=minute, second=0, microsecond=0)
+        
+        return scheduled_time
+
+    def should_run_now(self):
+        """Check if it's time to run the DCA cycle."""
+        if not self.dca_run_at_enabled:
+            return True
+        
+        # Get current time and scheduled time
+        now = datetime.now()
+        hour, minute = map(int, self.dca_run_at_time.split(":"))
+        scheduled_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        # Check if we're within 5 minutes of the scheduled time
+        time_diff = abs((now - scheduled_time).total_seconds())
+        
+        # Run if we're within 5 minutes of the scheduled time and haven't run today
+        # (or haven't run since the last interval if not daily)
+        if time_diff <= 300:  # Within 5 minutes
+            # For daily or longer intervals, check if we've already run today
+            if self.dca_interval_unit in ["Day(s)", "Week(s)", "Month(s)"]:
+                if self.last_run_day == now.day:
+                    return False
+            return True
+        
+        return False
+
+    def smart_sleep(self, seconds):
+        """Sleep with periodic checks for scheduled run time."""
+        start_time = time.time()
+        end_time = start_time + seconds
+        
+        # Sleep in 1-minute chunks, checking if it's time to run at each interval
+        while time.time() < end_time:
+            if self.dca_run_at_enabled and self.should_run_now():
+                info(" Waking up early because it's time for a scheduled DCA run")
+                break
+            
+            if self.yield_optimization_run_at_enabled and self.should_run_yield_optimization():
+                info(" Waking up early because it's time for a scheduled yield optimization")
+                self.optimize_yield()
+                # Continue sleeping after yield optimization
+            
+            # Sleep for up to 60 seconds at a time
+            sleep_time = min(60, end_time - time.time())
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     def run_scheduled_dca(self):
         """Run scheduled DCA purchases based on configured settings"""
@@ -1367,9 +1544,13 @@ class DCAAgent:
                 symbol = rec['symbol']
                 action = rec['action']
                 confidence = rec.get('confidence', 0)
-                entry_price = rec.get('entry_price', 0)
+                
+                # Get both current and entry prices
+                current_price = rec.get('price', 0)
+                entry_price = rec.get('entry_price', current_price)  # Fall back to current if entry not available
                 
                 debug(f"Processing recommendation for {symbol}: {action}", file_only=True)
+                debug(f"Current price: ${current_price:.6f}, Optimal entry price: ${entry_price:.6f}", file_only=True)
                 
                 # Skip if confidence is too low
                 if confidence < 70:
@@ -1381,21 +1562,11 @@ class DCAAgent:
                     info(f"Skipping {symbol} due to neutral recommendation: {action}")
                     continue
                 
-                # Get current price
-                current_price = n.token_price(token_address)
-                if not current_price:
-                    warning(f"Could not get current price for {symbol}, skipping")
-                    continue
-                    
-                # Calculate price difference
-                price_diff = ((current_price - entry_price) / entry_price) * 100
-                debug(f"{symbol} price change from recommendation: {price_diff:.2f}%", file_only=True)
-                
                 # Handle buy recommendations
                 if action.upper() in ['BUY', 'LONG']:
                     # Skip if current price is significantly higher than entry price
                     if current_price > entry_price * 1.03:  # 3% higher
-                        info(f"Skipping {symbol} buy as current price (${current_price:.4f}) is higher than entry (${entry_price:.4f})")
+                        info(f"Skipping {symbol} buy as current price (${current_price:.4f}) is higher than optimal entry price (${entry_price:.4f})")
                         continue
                         
                     # Calculate buy amount
@@ -1405,15 +1576,16 @@ class DCAAgent:
                         continue
                         
                     info(f"Setting buy limit order for {symbol} at ${entry_price:.4f} for ${buy_amount:.2f}")
+                    info(f"Current price: ${current_price:.4f}, Waiting for dip to ${entry_price:.4f} (-{((current_price-entry_price)/current_price*100):.1f}%)")
                     
-                    # Execute the buy order
+                    # Execute the buy order using the optimal entry price
                     self.execute_buy_order(token_address, symbol, entry_price, buy_amount, 'LIMIT')
                     
                 # Handle sell recommendations
                 elif action.upper() in ['SELL', 'SHORT']:
                     # Skip if current price is significantly lower than entry price
                     if current_price < entry_price * 0.97:  # 3% lower
-                        info(f"Skipping {symbol} sell as current price (${current_price:.4f}) is lower than entry (${entry_price:.4f})")
+                        info(f"Skipping {symbol} sell as current price (${current_price:.4f}) is lower than optimal entry price (${entry_price:.4f})")
                         continue
                         
                     # Check if we own the token
@@ -1423,8 +1595,9 @@ class DCAAgent:
                         continue
                         
                     info(f"Setting sell limit order for {symbol} at ${entry_price:.4f}")
+                    info(f"Current price: ${current_price:.4f}, Waiting for rise to ${entry_price:.4f} (+{((entry_price-current_price)/current_price*100):.1f}%)")
                     
-                    # Execute the sell order
+                    # Execute the sell order using the optimal entry price
                     self.execute_sell_order(token_address, symbol, entry_price, holdings, 'LIMIT')
                     
             except Exception as e:
@@ -1439,10 +1612,29 @@ class DCAAgent:
                 info(f"Executing market buy for {symbol} at ${price:.4f} for ${amount:.2f}")
                 
                 # Execute the buy through API
-                n.buy_token_with_usd(token_address, amount)
+                success = n.buy_token_with_usd(token_address, amount)
                 
-                # Record the trade
-                self.record_trade(symbol, 'BUY', price, amount)
+                if success:
+                    # Record the trade
+                    self.record_trade(symbol, 'BUY', price, amount)
+                    
+                    # Emit signal with enhanced information if available
+                    if QT_AVAILABLE and hasattr(self, 'order_executed'):
+                        # Get token name from token_map
+                        token_name = symbol
+                        if token_address in self.token_map:
+                            token_name = self.token_map[token_address][0]
+                            
+                        # Create analysis text
+                        analysis = f"DCA: Scheduled buy of {symbol} (${amount:.2f})"
+                        
+                        # Emit signal
+                        self.order_executed.emit(
+                            "dca", "BUY", token_name, amount/price if price > 0 else 0, 
+                            price, None, None, "", token_address, analysis
+                        )
+                else:
+                    warning(f"Failed to execute buy for {symbol}")
                 
             elif order_type == 'LIMIT':
                 info(f"Setting limit buy order for {symbol} at ${price:.4f} for ${amount:.2f}")
@@ -1459,15 +1651,62 @@ class DCAAgent:
             if order_type == 'MARKET':
                 info(f"Executing market sell for {symbol} at ${price:.4f} for {amount} tokens")
                 
+                # Calculate USD value before selling
+                value_before = amount * price
+                
+                # Get token data for tracking entry price
+                entry_price = 0
+                try:
+                    # Try to look up previous buy price from tracking data
+                    tracking_file = self.tracking_dir / f"{token_address}_tracking.csv"
+                    if tracking_file.exists():
+                        tracking_data = pd.read_csv(tracking_file)
+                        if not tracking_data.empty and 'entry_price' in tracking_data.columns:
+                            entry_price = tracking_data['entry_price'].iloc[-1]
+                except Exception as e:
+                    debug(f"No tracking data found for {symbol}: {str(e)}", file_only=True)
+                
                 # Execute the sell through API
-                n.sell_token_for_usd(token_address, amount)
+                success = n.sell_token_for_usd(token_address, amount)
                 
-                # Record the trade
-                sell_value = amount * price
-                self.record_trade(symbol, 'SELL', price, sell_value)
-                
-                # Track sold token for potential reentry
-                self.track_sold_tokens(token_address, amount, price)
+                if success:
+                    # Record the trade
+                    sell_value = amount * price
+                    self.record_trade(symbol, 'SELL', price, sell_value)
+                    
+                    # Track sold token for potential reentry
+                    self.track_sold_tokens(token_address, amount, price)
+                    
+                    # Calculate PnL if we have entry price
+                    pnl_value = None
+                    pnl_percent = None
+                    
+                    if entry_price > 0:
+                        pnl_value = amount * (price - entry_price)
+                        pnl_percent = ((price / entry_price) - 1) * 100
+                    
+                    # Emit signal with enhanced information if available
+                    if QT_AVAILABLE and hasattr(self, 'order_executed'):
+                        # Get token name from token_map
+                        token_name = symbol
+                        if token_address in self.token_map:
+                            token_name = self.token_map[token_address][0]
+                            
+                        # Create analysis text - check if it was take profit
+                        if pnl_percent and pnl_percent >= config.TAKE_PROFIT_PERCENTAGE:
+                            analysis = f"DCA: Take profit triggered at {pnl_percent:.2f}%"
+                        else:
+                            analysis = f"DCA: Scheduled sell of {symbol} (${sell_value:.2f})"
+                        
+                        # Emit signal
+                        self.order_executed.emit(
+                            "dca", "SELL", token_name, amount, 
+                            entry_price, price,
+                            (pnl_value, pnl_percent) if pnl_value is not None else None,
+                            "", token_address, analysis
+                        )
+                else:
+                    warning(f"Failed to execute sell for {symbol}")
                 
             elif order_type == 'LIMIT':
                 info(f"Setting limit sell order for {symbol} at ${price:.4f} for {amount} tokens")
@@ -1618,6 +1857,129 @@ class DCAAgent:
         except Exception as e:
             warning(f"Error calculating position size: {str(e)}")
             return 0
+
+    def get_ai_staking_advice(self):
+        """Get AI-based staking recommendations using the configured prompt"""
+        try:
+            info("Getting AI staking advice...")
+            
+            # 1. Gather required data following the variables in AIPromptGuideTab
+            # Create token_list
+            token_list = "Tokens being monitored:\n"
+            for token in self.dca_monitored_tokens:
+                symbol = self.get_token_symbol(token)
+                balance = n.get_token_balance(token)
+                price = n.token_price(token) 
+                value = balance * price if price else 0
+                token_list += f"- {symbol}: {balance:.4f} tokens, ${value:.2f}\n"
+                
+            # Get staking rewards data
+            staking_data, staking_rewards = self.get_staking_rewards_and_apy()
+            staking_rewards_str = f"Current staking rewards: {staking_rewards} SOL\n"
+            
+            # Format APY data
+            apy_data = "Current staking APYs:\n"
+            for protocol, apy in staking_data.items():
+                apy_data += f"- {protocol}: {apy:.2f}%\n"
+                
+            # Get market conditions (simplified)
+            sol_price = n.token_price("So11111111111111111111111111111111111111112")
+            sol_balance = n.get_token_balance("So11111111111111111111111111111111111111112")
+            usdc_balance = n.get_token_balance("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+            market_conditions = f"Market conditions:\n- SOL Price: ${sol_price:.2f}\n- SOL Balance: {sol_balance:.4f}\n- USDC Balance: ${usdc_balance:.2f}\n"
+            
+            # 2. Format the prompt with our data
+            formatted_prompt = DCA_AI_PROMPT.format(
+                token_list=token_list,
+                staking_rewards=staking_rewards_str,
+                apy_data=apy_data,
+                market_conditions=market_conditions
+            )
+            
+            # 3. Choose the appropriate AI client based on model name
+            response = None
+            if self.ai_model.startswith("claude"):
+                info(f"Using Anthropic's {self.ai_model} for staking advice")
+                response = self.client_anthropic.messages.create(
+                    model=self.ai_model,
+                    max_tokens=self.ai_max_tokens,
+                    temperature=self.ai_temperature,
+                    messages=[
+                        {"role": "user", "content": formatted_prompt}
+                    ]
+                )
+                ai_advice = response.content[0].text
+            elif self.ai_model.startswith("gpt"):
+                info(f"Using OpenAI's {self.ai_model} for staking advice")
+                response = self.client_openai.chat.completions.create(
+                    model=self.ai_model,
+                    temperature=self.ai_temperature,
+                    max_tokens=self.ai_max_tokens,
+                    messages=[
+                        {"role": "user", "content": formatted_prompt}
+                    ]
+                )
+                ai_advice = response.choices[0].message.content
+            else:
+                warning(f"Unknown AI model type: {self.ai_model}, falling back to default logic")
+                return None
+            
+            # Parse the response for structured data
+            protocol = None
+            allocation = None
+            convert = False
+            compound = None
+            reasoning = ""
+            
+            for line in ai_advice.split("\n"):
+                line = line.strip()
+                if line.startswith("PROTOCOL:"):
+                    protocol = line.replace("PROTOCOL:", "").strip().lower()
+                elif line.startswith("ALLOCATION:"):
+                    allocation_text = line.replace("ALLOCATION:", "").strip()
+                    try:
+                        # Extract number from text like "50%" or "50 percent"
+                        allocation = int(''.join(c for c in allocation_text if c.isdigit()))
+                    except:
+                        allocation = None
+                elif line.startswith("CONVERT:"):
+                    convert_text = line.replace("CONVERT:", "").strip().upper()
+                    convert = convert_text == "YES"
+                elif line.startswith("COMPOUND:"):
+                    compound = line.replace("COMPOUND:", "").strip()
+                elif line.startswith("REASONING:"):
+                    reasoning = line.replace("REASONING:", "").strip()
+            
+            info(f"AI Staking Recommendation: {protocol} protocol, {allocation}% allocation")
+            info(f"Convert: {convert}, Compound: {compound}")
+            info(f"Reasoning: {reasoning}")
+            
+            return {
+                "protocol": protocol,
+                "allocation": allocation,
+                "convert": convert,
+                "compound": compound,
+                "reasoning": reasoning,
+                "raw_response": ai_advice
+            }
+            
+        except Exception as e:
+            error(f"Error getting AI staking advice: {str(e)}")
+            return None
+
+    def should_run_yield_optimization(self):
+        """Check if it's time to run yield optimization."""
+        if not self.yield_optimization_run_at_enabled:
+            return False
+        
+        # Get current time and scheduled time
+        now = datetime.now()
+        hour, minute = map(int, self.yield_optimization_run_at_time.split(":"))
+        scheduled_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        # Check if we're within 5 minutes of the scheduled time
+        time_diff = abs((now - scheduled_time).total_seconds())
+        return time_diff <= 300  # Within 5 minutes
 
 if __name__ == "__main__":
     dca_agent = DCAAgent(fixed_dca_amount=10)  # Set fixed DCA amount

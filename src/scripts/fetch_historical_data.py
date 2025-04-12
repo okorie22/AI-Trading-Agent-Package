@@ -102,13 +102,30 @@ def fetch_coingecko_data(token_id, days):
     """
     Fetch historical price data from CoinGecko.
     """
+    # Basic parameters common to both APIs
     params = {
         "vs_currency": "usd",
         "days": days,
         "interval": "daily",
-        "x_cg_demo_api_key": COINGECKO_API_KEY
     }
-    response = requests.get(COINGECKO_URL.format(token_id), params=params)
+    
+    # Determine if using Pro API (usually starts with CG-)
+    headers = {}
+    api_url = COINGECKO_URL.format(token_id)
+    
+    # Check if API key looks like a Pro API key
+    if COINGECKO_API_KEY and COINGECKO_API_KEY.startswith("CG-"):
+        # Use Pro API
+        headers["x-cg-pro-api-key"] = COINGECKO_API_KEY
+        # Modify the URL to use Pro API endpoint
+        api_url = api_url.replace("api.coingecko.com", "pro-api.coingecko.com")
+    else:
+        # Use Free Demo API
+        params["x_cg_demo_api_key"] = COINGECKO_API_KEY
+    
+    # Make the request with appropriate params and headers
+    response = requests.get(api_url, params=params, headers=headers)
+    
     if response.status_code != 200:
         error(f"CoinGecko API error: {response.status_code}")
         debug(f"Response: {response.text}", file_only=True)

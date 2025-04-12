@@ -510,38 +510,92 @@ class TokenAccountTracker:
             # Detect new tokens
             for mint, token_data in current_tokens.items():
                 if mint not in previous_tokens:
+                    # Get current price for new token
+                    price = token_data.get("price", 1)
+                    amount = token_data.get("amount", 0)  # Human-readable amount
+                    
+                    # Calculate USD value
+                    usd_value = amount * price
+                    
                     wallet_changes["new"][mint] = {
-                        "amount": int(token_data["raw_amount"]),
+                        "amount": amount,  # Use human-readable amount instead of raw_amount
                         "symbol": token_data.get("symbol", "UNK"),
-                        "name": token_data.get("name", "Unknown Token")
+                        "name": token_data.get("name", "Unknown Token"),
+                        "price": price,
+                        "usd_value": usd_value
                     }
 
             # Detect removed tokens
             for mint, token_data in previous_tokens.items():
                 if mint not in current_tokens:
+                    # Get last known price for removed token
+                    price = token_data.get("price", 1)
+                    amount = token_data.get("amount", 0)  # Human-readable amount
+                    
+                    # Calculate USD value
+                    usd_value = amount * price
+                    
                     wallet_changes["removed"][mint] = {
-                        "amount": int(token_data["raw_amount"]),
+                        "amount": amount,  # Use human-readable amount instead of raw_amount
                         "symbol": token_data.get("symbol", "UNK"),
-                        "name": token_data.get("name", "Unknown Token")
+                        "name": token_data.get("name", "Unknown Token"),
+                        "price": price,
+                        "usd_value": usd_value
                     }
 
-            # Detect modified tokens with percentage change
+            # Detect modified tokens with changes in amount, price, and USD value
             for mint, curr_data in current_tokens.items():
                 prev_data = previous_tokens.get(mint)
                 if prev_data is not None:
-                    curr_amount = int(curr_data["raw_amount"])
-                    prev_amount = int(prev_data["raw_amount"])
+                    # Use human-readable amounts
+                    curr_amount = curr_data.get("amount", 0)
+                    prev_amount = prev_data.get("amount", 0)
                     
-                    if prev_amount != curr_amount:
-                        change = curr_amount - prev_amount
-                        pct = (change / prev_amount * 100) if prev_amount != 0 else 0
+                    # Get prices
+                    curr_price = curr_data.get("price", 1)
+                    prev_price = prev_data.get("price", 1)
+                    
+                    # Calculate USD values
+                    curr_usd = curr_amount * curr_price
+                    prev_usd = prev_amount * prev_price
+                    
+                    # Calculate changes
+                    amount_change = curr_amount - prev_amount
+                    price_change = curr_price - prev_price
+                    usd_change = curr_usd - prev_usd
+                    
+                    # Simplified and more direct percentage calculation
+                    # Force sign to accurately reflect if tokens increased or decreased
+                    if amount_change > 0:
+                        # Token amount increased, ensure percentage is positive
+                        pct = abs((amount_change / prev_amount) * 100 if prev_amount != 0 else 100)
+                    elif amount_change < 0:
+                        # Token amount decreased, ensure percentage is negative
+                        pct = -abs((amount_change / prev_amount) * 100 if prev_amount != 0 else 100)
+                    else:
+                        # No change in token amount
+                        pct = 0
+                    
+                    debug(f"Token {mint}: Previous: {prev_amount}, Current: {curr_amount}, Change: {amount_change}, PCT: {pct:.2f}%", file_only=True)
+                    
+                    # Only add to changes if something changed
+                    if curr_amount != prev_amount or curr_price != prev_price:
                         wallet_changes["modified"][mint] = {
                             "previous_amount": prev_amount,
                             "current_amount": curr_amount,
-                            "change": change,
-                            "pct_change": round(pct, 2),
+                            "change": amount_change,
+                            "pct_change": round(pct, 2),  # Keep for backward compatibility
                             "symbol": curr_data.get("symbol", "UNK"),
-                            "name": curr_data.get("name", "Unknown Token")
+                            "name": curr_data.get("name", "Unknown Token"),
+                            
+                            # Add new price and USD value information
+                            "previous_price": prev_price,
+                            "current_price": curr_price,
+                            "price_change": price_change,
+                            
+                            "previous_usd": prev_usd,
+                            "current_usd": curr_usd,
+                            "usd_change": usd_change
                         }
 
             # Only add to changes if there are actual changes
@@ -559,16 +613,35 @@ class TokenAccountTracker:
                     if num_new > 0:
                         for mint, token_data in wallet_changes["new"].items():
                             symbol = token_data.get("symbol", "UNK")
+                            amount = token_data.get("amount", 0)
+                            debug(f"NEW: {symbol} token in wallet {wallet[:4]} with amount {amount}", file_only=True)
                             info(f"NEW: {symbol} token detected in wallet {wallet[:4]}")
                     
                     if num_modified > 0:
                         for mint, token_data in wallet_changes["modified"].items():
                             symbol = token_data.get("symbol", "UNK")
                             change_pct = token_data.get("pct_change", 0)
+                            prev_amt = token_data.get("previous_amount", 0)
+                            curr_amt = token_data.get("current_amount", 0)
+                            change_amt = token_data.get("change", 0)
+                            
+                            # Enhanced logging to debug the issue
+                            debug(f"MODIFIED: {symbol} in wallet {wallet[:4]}", file_only=True)
+                            debug(f"  Previous amount: {prev_amt}", file_only=True)
+                            debug(f"  Current amount: {curr_amt}", file_only=True)
+                            debug(f"  Change amount: {change_amt}", file_only=True)
+                            debug(f"  Change percent: {change_pct}%", file_only=True)
+                            
                             if change_pct > 0:
                                 info(f"INCREASE: {symbol} increased by {change_pct:.2f}% in wallet {wallet[:4]}")
                             else:
                                 info(f"DECREASE: {symbol} decreased by {abs(change_pct):.2f}% in wallet {wallet[:4]}")
+                    
+                    if num_removed > 0:
+                        for mint, token_data in wallet_changes["removed"].items():
+                            symbol = token_data.get("symbol", "UNK")
+                            amount = token_data.get("amount", 0)
+                            debug(f"REMOVED: {symbol} token from wallet {wallet[:4]} with previous amount {amount}", file_only=True)
 
         return changes
 

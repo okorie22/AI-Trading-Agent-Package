@@ -1,0 +1,9 @@
+timestamp,event_type,wallet,token,token_symbol,token_mint,amount,change,percent_change,token_name,price,price_change,usd_change
+2025-04-12 14:29:37,REMOVED,242p259r...s9ZW,Unknown Token,UNK,YE97hRDaJqPHysQ41XTNHzTdSgSuVCESyhJqdj2gmGz,34718.0,,,Unknown Token,1,0,-34718.0
+2025-04-12 14:29:37,REMOVED,242p259r...s9ZW,Unknown Token,UNK,DycFB5CXEvEngK1B7GVrXsj3Uz7GecQUZXeSVLsFpump,13272.288,,,Unknown Token,1,0,-13272.288
+2025-04-12 14:29:37,REMOVED,242p259r...s9ZW,Unknown Token,UNK,CR2L1ob96JGWQkdFbt8rLwqdLLmqFwjcNGL2eFBn1RPt,35000.0,,,Unknown Token,1,0,-35000.0
+2025-04-12 14:29:37,REMOVED,242p259r...s9ZW,Unknown Token,UNK,C94njgTrKMQBmgqe23EGLrtPgfvcjWtqBBvGQ7Cjiank,25345.544,,,Unknown Token,1,0,-25345.544
+2025-04-12 14:29:37,REMOVED,242p259r...s9ZW,Unknown Token,UNK,AgPQJw1yFSUKE9e3JWRgyZp6zbrWmPxjundm1WEUpump,25042.452,,,Unknown Token,1,0,-25042.452
+2025-04-12 14:29:37,REMOVED,242p259r...s9ZW,Unknown Token,UNK,7PU5nufFpFNhsbuiLH2JqhWkNvbuurNLY1X7tHttSBc9,11308.0,,,Unknown Token,1,0,-11308.0
+2025-04-12 14:29:37,NEW,242p259r...s9ZW,Unknown Token,UNK,6mqXWbCzegzCVkLBsQUJ5rphvPCAKuFwm8UtXDUapump,34641226.269519,,,Unknown Token,1,0,0.0
+2025-04-12 09:09:30,MODIFIED,FXzJ6xwH...91ap,Unknown Token,UNK,GHKh7pygjYrFzWfQnhSZ1GyBGmq9UytyF9gWh6eipump,1000000.0,-10000000.0,-90.91,Unknown Token,1,0,-10000000.0

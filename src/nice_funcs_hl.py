@@ -335,6 +335,69 @@ def test_funding_rates():
         error("Full error traceback:")
         traceback.print_exc()
 
+def get_user_positions(user_address):
+    """
+    Get current positions and account information for a user
+    
+    Args:
+        user_address (str): Ethereum address of user
+        
+    Returns:
+        dict: User state data or None if error
+    """
+    try:
+        debug(f"Fetching positions for user {user_address}...")
+        response = requests.post(
+            BASE_URL,
+            headers={'Content-Type': 'application/json'},
+            json={"type": "userState", "user": user_address}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        error(f"Failed to get user positions: {response.status_code} - {response.text}")
+        return None
+    except Exception as e:
+        error(f"Error getting user positions: {str(e)}")
+        traceback.print_exc()
+        return None
+
+def calculate_liquidation_price(symbol, position_size, entry_price, leverage, is_long=True):
+    """
+    Calculate liquidation price for a position
+    
+    Args:
+        symbol (str): Trading pair symbol
+        position_size (float): Size of position in contracts
+        entry_price (float): Entry price of position
+        leverage (float): Leverage used
+        is_long (bool): Whether position is long (True) or short (False)
+        
+    Returns:
+        float: Liquidation price
+    """
+    try:
+        # Get funding rate as it affects liquidation price
+        funding_data = get_funding_rates(symbol)
+        funding_rate = 0
+        if funding_data:
+            funding_rate = funding_data.get('funding_rate', 0)
+        
+        # Calculate maintenance margin (typical 0.5-1% for crypto)
+        maintenance_margin = 0.005  # 0.5%
+        
+        # Calculate liquidation price
+        if is_long:
+            liq_price = entry_price * (1 - (1 / leverage) + maintenance_margin)
+        else:
+            liq_price = entry_price * (1 + (1 / leverage) - maintenance_margin)
+            
+        return liq_price
+    except Exception as e:
+        error(f"Error calculating liquidation price: {str(e)}")
+        return None
+
 if __name__ == "__main__":
     info("Moon Dev's Hyperliquid Function Tester")
     debug("=" * 50, file_only=True)

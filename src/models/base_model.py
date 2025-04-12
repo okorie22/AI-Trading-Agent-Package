@@ -6,8 +6,16 @@ This module defines the base interface for all AI models.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+import sys
+from typing import Dict, List, Optional, Any, TypeVar, Union
 from dataclasses import dataclass
+
+# Handle Self type annotation in a version-compatible way
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    # For older Python versions, use TypeVar as a substitute for Self
+    Self = TypeVar('Self', bound='BaseModel')
 
 @dataclass
 class ModelResponse:
