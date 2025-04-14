@@ -563,8 +563,21 @@ class TrackerTab(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll_area)
 
-        # Force initial refresh after UI is fully loaded
-        QTimer.singleShot(2000, self.refresh_tracked_tokens)
+        # Replace the auto-timer with a more cautious approach
+        # Comment out the original timer
+        # QTimer.singleShot(2000, self.refresh_tracked_tokens)
+        
+        # Add a safer version with try-except block
+        def safe_refresh():
+            try:
+                self.refresh_tracked_tokens()
+            except Exception as e:
+                import traceback
+                print(f"Error in auto-refresh timer: {str(e)}")
+                traceback.print_exc()
+                self.token_stats_label.setText(f"Token Stats: Error in auto-refresh - {str(e)}")
+        
+        QTimer.singleShot(5000, safe_refresh)  # Increased delay to 5 seconds
     
     def refresh_tracked_tokens(self):
         """Refresh the tracked tokens table from the artificial memory files"""
@@ -573,101 +586,154 @@ class TrackerTab(QWidget):
         import json
         from src.nice_funcs import token_price  # Import token_price function
         
-        self.tokens_table.setRowCount(0)  # Clear existing data
-        
-        # Determine which memory file to use based on DYNAMIC_MODE
-        from src.config import DYNAMIC_MODE
-        memory_file = os.path.join(
-            os.getcwd(), 
-            "src/data/artificial_memory_d.json" if DYNAMIC_MODE else "src/data/artificial_memory_m.json"
-        )
+        # Clear the table first
+        self.tokens_table.setRowCount(0)
         
         try:
-            if os.path.exists(memory_file):
-                with open(memory_file, "r") as f:
-                    memory_data = json.load(f)
+            # Determine which memory file to use based on DYNAMIC_MODE
+            from src.config import DYNAMIC_MODE
+            memory_file = os.path.join(
+                os.getcwd(), 
+                "src/data/artificial_memory_d.json" if DYNAMIC_MODE else "src/data/artificial_memory_m.json"
+            )
+            
+            # Skip if file doesn't exist
+            if not os.path.exists(memory_file):
+                self.token_stats_label.setText("Token Stats: Memory file not found")
+                return
+            
+            # Load the raw JSON data
+            with open(memory_file, "r") as f:
+                raw_data = f.read()
+                memory_data = json.loads(raw_data)
+            
+            # Define empty containers that will be populated
+            wallet_data = {}
+            token_stats = {}
+            
+            # Function to safely extract data from the JSON
+            def safe_extract_wallet_data(data):
+                # Return a valid dict or empty dict
+                if not isinstance(data, dict):
+                    return {}
                 
-                # Extract wallet data
-                wallet_data = memory_data.get('data', {}).get('data', {})
-                if not wallet_data and 'data' in memory_data:
-                    wallet_data = memory_data['data']  # Handle different structure
+                # Check several possible paths to locate wallet data
+                if 'data' in data:
+                    if isinstance(data['data'], dict):
+                        if 'data' in data['data'] and isinstance(data['data']['data'], dict):
+                            return data['data']['data']
+                        # If no nested data
+                        return data['data']
                 
-                row = 0
-                wallet_token_stats = {}  # To track tokens per wallet
-                
+                # Fallback: Just use what's there if it's a dict
+                return data if isinstance(data, dict) else {}
+            
+            # Extract the wallet data safely
+            wallet_data = safe_extract_wallet_data(memory_data)
+            
+            # Safely extract wallet stats if available
+            wallet_stats = {}
+            if isinstance(memory_data, dict) and isinstance(memory_data.get('data'), dict):
+                stats = memory_data['data'].get('wallet_stats')
+                if isinstance(stats, dict):
+                    wallet_stats = stats
+            
+            # Row counter for the table
+            row = 0
+            
+            # Counter for wallet tokens (will be used for stats)
+            token_counts = {}
+            
+            # Process tokens for each wallet (if wallet_data is valid)
+            if isinstance(wallet_data, dict):
                 for wallet, tokens in wallet_data.items():
-                    wallet_token_stats[wallet] = len(tokens)
-                    for token_data in tokens:
+                    # Only process if tokens is a list or dict
+                    if not isinstance(tokens, (list, dict)):
+                        token_counts[wallet] = 0
+                        continue
+                    
+                    # Count tokens
+                    token_count = 0
+                    
+                    # Process each token
+                    if isinstance(tokens, list):
+                        token_items = tokens
+                    else:  # If it's a dict
+                        token_items = list(tokens.values())
+                    
+                    for token_data in token_items:
+                        # Skip if not a dictionary
+                        if not isinstance(token_data, dict):
+                            continue
+                        
+                        # Add row to table
                         self.tokens_table.insertRow(row)
                         
-                        # Format timestamp (now in column 0)
-                        timestamp = token_data.get('timestamp', '')
+                        # Format timestamp
+                        timestamp = str(token_data.get('timestamp', ''))
                         try:
                             dt = datetime.fromisoformat(timestamp)
                             formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
                         except:
                             formatted_time = timestamp
                         
+                        # Add data to table (with null checks)
                         self.tokens_table.setItem(row, 0, QTableWidgetItem(formatted_time))
-                        self.tokens_table.setItem(row, 1, QTableWidgetItem(wallet))
+                        self.tokens_table.setItem(row, 1, QTableWidgetItem(str(wallet)))
                         
-                        # Get token mint, name and symbol
-                        token_mint = token_data.get('mint', 'Unknown')
-                        token_name = token_data.get('name', 'Unknown Token')
-                        token_symbol = token_data.get('symbol', 'UNK')
+                        # Token info (convert all to strings to be safe)
+                        token_mint = str(token_data.get('mint', 'Unknown'))
+                        token_name = str(token_data.get('name', 'Unknown Token'))
+                        token_symbol = str(token_data.get('symbol', 'UNK'))
                         
-                        # Display mint, name and symbol
                         self.tokens_table.setItem(row, 2, QTableWidgetItem(token_mint))
                         self.tokens_table.setItem(row, 3, QTableWidgetItem(token_name))
                         self.tokens_table.setItem(row, 4, QTableWidgetItem(token_symbol))
                         
-                        # Get amount and decimals
-                        amount = token_data.get('amount', 0)
-                        decimals = token_data.get('decimals', 0)
+                        # Amount and decimals
+                        try:
+                            amount = float(token_data.get('amount', 0))
+                        except:
+                            amount = 0
+                            
+                        try:
+                            decimals = int(token_data.get('decimals', 0))
+                        except:
+                            decimals = 0
                         
-                        # Amount in column 5
                         self.tokens_table.setItem(row, 5, QTableWidgetItem(str(amount)))
-                        
-                        # Decimals in column 6 (moved to be between Amount and Price)
                         self.tokens_table.setItem(row, 6, QTableWidgetItem(str(decimals)))
                         
-                        # Get price for column 7
-                        # First try to get price from token_data
-                        price = token_data.get('price')
-                        if price is None:
-                            # If price not in token_data, try to fetch it using token_price function
-                            try:
-                                price = token_price(token_mint)
-                            except:
-                                price = None
-                                
-                        # Format price for display
-                        if price is not None:
-                            price_text = f"${price:.6f}" if price < 0.01 else f"${price:.4f}"
-                        else:
-                            price_text = "N/A"
-                            
-                        # Add price in column 7
-                        price_item = QTableWidgetItem(price_text)
-                        self.tokens_table.setItem(row, 7, price_item)
+                        # Price
+                        try:
+                            price = float(token_data.get('price', 0))
+                            if price == 0:
+                                try:
+                                    price = token_price(token_mint)
+                                except:
+                                    price = 0
+                        except:
+                            price = 0
                         
-                        # Calculate and display USD value in column 8
-                        if price is not None and amount is not None:
+                        # Format price
+                        price_text = f"${price:.6f}" if price > 0 and price < 0.01 else f"${price:.4f}" if price > 0 else "N/A"
+                        self.tokens_table.setItem(row, 7, QTableWidgetItem(price_text))
+                        
+                        # USD Value
+                        if price > 0 and amount > 0:
                             usd_value = amount * price
                             
-                            # Format USD value
+                            # Format the USD value
                             if usd_value >= 1000000:  # $1M+
                                 usd_text = f"${usd_value/1000000:.2f}M"
                             elif usd_value >= 1000:  # $1K+
                                 usd_text = f"${usd_value/1000:.2f}K"
                             elif usd_value >= 1:  # $1+
                                 usd_text = f"${usd_value:.2f}"
-                            elif usd_value >= 0.01:  # $0.01+
+                            else:  # < $1
                                 usd_text = f"${usd_value:.4f}"
-                            else:  # < $0.01
-                                usd_text = f"${usd_value:.6f}"
                                 
-                            # Color-code USD value based on amount
+                            # Highlight based on value
                             usd_item = QTableWidgetItem(usd_text)
                             if usd_value >= 10000:
                                 usd_item.setForeground(QColor(CyberpunkColors.SUCCESS))
@@ -678,44 +744,52 @@ class TrackerTab(QWidget):
                         else:
                             self.tokens_table.setItem(row, 8, QTableWidgetItem("N/A"))
                         
+                        # Increment counters
                         row += 1
-                
-                # Look for tokens found/skipped stats in the memory data
-                stats_text = "Token Stats: "
-                
-                # Get wallet stats directly from the cache file - FIX FOR NESTED STRUCTURE
-                wallet_stats = {}
-                if 'data' in memory_data and 'wallet_stats' in memory_data['data']:
-                    wallet_stats = memory_data['data']['wallet_stats']
-                else:
-                    wallet_stats = memory_data.get('wallet_stats', {})
-                
-                stats_parts = []
-                
-                # Simple display of found/skipped counts
+                        token_count += 1
+                    
+                    # Store token count for this wallet
+                    token_counts[wallet] = token_count
+            
+            # Prepare the stats text
+            stats_parts = []
+            
+            # First try to use wallet_stats if available
+            if isinstance(wallet_stats, dict) and wallet_stats:
                 for wallet, stats in wallet_stats.items():
-                    found = stats.get('found', 0)
-                    skipped = stats.get('skipped', 0)
-                    short_wallet = wallet[:4]
-                    stats_parts.append(f"{short_wallet}: {found} found, {skipped} skipped")
-                
-                if stats_parts:
-                    stats_text += " | ".join(stats_parts)
-                else:
-                    # Fallback to just showing token counts if no stats available
-                    for wallet, count in wallet_token_stats.items():
+                    if isinstance(stats, dict):
+                        found = stats.get('found', 0)
+                        skipped = stats.get('skipped', 0)
+                        try:
+                            short_wallet = wallet[:4]
+                        except:
+                            short_wallet = str(wallet)
+                        stats_parts.append(f"{short_wallet}: {found} found, {skipped} skipped")
+            
+            # If no stats from wallet_stats, use our token counts
+            if not stats_parts and token_counts:
+                for wallet, count in token_counts.items():
+                    try:
                         short_wallet = wallet[:4]
-                        stats_parts.append(f"{short_wallet}: {count} tokens")
-                    if stats_parts:
-                        stats_text += " | ".join(stats_parts)
-                    else:
-                        stats_text += "No tokens found"
-                
-                # Update the stats label
-                self.token_stats_label.setText(stats_text)
-                
+                    except:
+                        short_wallet = str(wallet)
+                    stats_parts.append(f"{short_wallet}: {count} tokens")
+            
+            # Finalize stats text
+            if stats_parts:
+                stats_text = "Token Stats: " + " | ".join(stats_parts)
+            else:
+                stats_text = "Token Stats: No tokens found"
+            
+            # Update the label
+            self.token_stats_label.setText(stats_text)
+            
         except Exception as e:
-            print(f"Error refreshing tracked tokens: {str(e)}")
+            import traceback
+            print(f"ERROR IN refresh_tracked_tokens: {type(e).__name__}: {str(e)}")
+            print("---- STACK TRACE ----")
+            traceback.print_exc()
+            print("---- END STACK TRACE ----")
             self.token_stats_label.setText(f"Token Stats: Error loading data - {str(e)}")
     
     def manual_refresh_changes(self):
@@ -2131,7 +2205,7 @@ class OrdersTab(QWidget):
             for _, row in orders_df.iterrows():
                 if order_count >= self.display_limit:
                     break
-                    
+                        
                 # Combine PnL value and percentage into tuple if both exist
                 pnl = None
                 if 'pnl_value' in row and pd.notna(row['pnl_value']):

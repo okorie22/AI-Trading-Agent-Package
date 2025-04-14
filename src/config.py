@@ -59,18 +59,18 @@ previous_monitored_tokens = []
 tokens_to_trade = MONITORED_TOKENS  
 
 # CopyBot Runtime Mode
-COPYBOT_CONTINUOUS_MODE = True
-COPYBOT_INTERVAL_MINUTES = 35
+COPYBOT_CONTINUOUS_MODE = False
+COPYBOT_INTERVAL_MINUTES = 5
 COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN = True
 
 #CopyBot Settings
 FILTER_MODE = "Dynamic"
-PERCENTAGE_THRESHOLD = 5.1
-AMOUNT_THRESHOLD = 5003
+PERCENTAGE_THRESHOLD = 0.1
+AMOUNT_THRESHOLD = 6000
 ENABLE_PERCENTAGE_FILTER = True
 ENABLE_AMOUNT_FILTER = True
-ENABLE_ACTIVITY_FILTER = True
-ACTIVITY_WINDOW_HOURS = 9
+ENABLE_ACTIVITY_FILTER = False
+ACTIVITY_WINDOW_HOURS = 1
 
 # CopyBot Mirror Trading Settings
 COPYBOT_AUTO_BUY_NEW_TOKENS = True  # Auto-buy new tokens in mirror mode
@@ -240,7 +240,7 @@ RISK_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API
 RISK_CHECK_INTERVAL_MINUTES = 10
 RISK_LOSS_CONFIDENCE_THRESHOLD = 77# Minimum confidence to override max loss limits (0-100)
 RISK_GAIN_CONFIDENCE_THRESHOLD = 70# Minimum confidence to override max gain limits (0-100)
-RISK_CONTINUOUS_MODE = True# When True, Risk Agent runs continuously instead of on interval
+RISK_CONTINUOUS_MODE = False# When True, Risk Agent runs continuously instead of on interval
 
 
 # Specific tokens for DCA Agent

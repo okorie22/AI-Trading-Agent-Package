@@ -1006,13 +1006,7 @@ Current staking protocols: marinade, lido, jito
             print(f"Error loading config settings: {e}")
     
     def setup_ui(self):
-        # Set fixed height constraints for the entire tab
-        self.setMinimumHeight(400)
-        self.setMaximumHeight(700)  # Reduced from 800 to prevent expansion
-        
-        # Force a fixed height policy that can't be overridden
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
+        # Remove fixed height constraints for the entire tab
         layout = QVBoxLayout(self)
         layout.setSpacing(5)  # Reduce spacing between elements
         layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
@@ -1059,10 +1053,8 @@ Current staking protocols: marinade, lido, jito
         scroll_layout = QVBoxLayout(scroll_widget)
         scroll_layout.setSpacing(5)  # Reduce spacing between elements
         
-        # For the scroll_widget
-        scroll_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        # For the scroll_widget - set to allow dynamic sizing
         scroll_layout.setAlignment(Qt.AlignTop)  # Align to top to prevent stretching
-        scroll_widget.setMaximumHeight(5000)  # Set explicit max height
         
         # 1. AI Prompt Section (from Chart Analysis Agent)
         ai_group = QGroupBox("Chart Analysis AI Prompt")
@@ -1580,13 +1572,9 @@ So11111111111111111111111111111111111111112: SOL,SOL"""
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_widget)
         scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll_area.setMinimumHeight(400)
-        scroll_area.setMaximumHeight(700)  # Set a maximum height to prevent overflow
         
-        # Prevent scrollbar from causing layout changes by always showing it
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        
-        layout.addWidget(scroll_area, 1)  # Give it a stretch factor of 1
+        # Add the scroll area to the main layout
+        layout.addWidget(scroll_area)
         
         # Add at the end of the scroll_layout setup - ensure there's always extra space
         spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)

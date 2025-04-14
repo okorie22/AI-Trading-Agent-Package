@@ -1175,12 +1175,100 @@ class MainWindow(QMainWindow):
             data_dir = os.path.join(os.path.dirname(self.src_path), 'data')
             os.makedirs(data_dir, exist_ok=True)
         
-        # Add helper method for config updates
-        
-        
         # Set window properties
-        self.setWindowTitle("Anarcho Capital: CryptoBot System")
+        self.setWindowTitle("Anarcho Capital")
         self.resize(1200, 800)
+        
+        # Set title bar styling ONLY (Windows specific) - doesn't affect other UI elements
+        if sys.platform == 'win32':
+            try:
+                # Use Windows-specific API to set dark mode for title bar only
+                from ctypes import windll, c_int, byref, sizeof
+                # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                windll.dwmapi.DwmSetWindowAttribute(
+                    int(self.winId()),
+                    20,  # DWMWA_USE_IMMERSIVE_DARK_MODE
+                    byref(c_int(1)),
+                    sizeof(c_int)
+                )
+                
+                # Add blue border at the bottom of the title bar
+                title_frame = QFrame(self)
+                title_frame.setStyleSheet(f"background-color: {CyberpunkColors.PRIMARY}; border: none;")
+                title_frame.setFixedHeight(2)  # 2px height blue line
+                
+                # Position directly under title bar and above menu bar
+                def position_title_border():
+                    menu_bar = self.menuBar()
+                    menu_pos = menu_bar.pos()
+                    # Position the line right above the menu bar
+                    title_frame.setGeometry(0, menu_pos.y() - 2, self.width(), 2)
+                
+                # Call it once to set initial position
+                QTimer.singleShot(100, position_title_border)
+                
+                # Create original resize event handler reference to preserve any existing functionality
+                original_resize_event = self.resizeEvent
+                
+                # Create a new resize event handler
+                def custom_resize_event(event):
+                    # Reposition the border whenever window is resized
+                    position_title_border()
+                    
+                    # Call original event handler if it exists
+                    if original_resize_event:
+                        original_resize_event(event)
+                
+                # Set the custom resize event handler
+                self.resizeEvent = custom_resize_event
+                
+                # Direct approach: add a border to the top of the menu bar
+                menu_bar = self.menuBar()
+                menu_bar.setStyleSheet(f"""
+                    QMenuBar {{
+                        background-color: {CyberpunkColors.BACKGROUND};
+                        color: {CyberpunkColors.TEXT_LIGHT};
+                        border-top: 2px solid {CyberpunkColors.PRIMARY};
+                    }}
+                    QMenuBar::item {{
+                        background-color: {CyberpunkColors.BACKGROUND};
+                        color: {CyberpunkColors.TEXT_LIGHT};
+                    }}
+                    QMenuBar::item:selected {{
+                        background-color: {CyberpunkColors.PRIMARY};
+                        color: {CyberpunkColors.BACKGROUND};
+                    }}
+                """)
+                # Make sure menu bar is visible
+                menu_bar.setVisible(True)
+                
+                # Add an additional separator line between title bar and menu bar
+                separator_line = QFrame(self)
+                separator_line.setFrameShape(QFrame.HLine)
+                separator_line.setFixedHeight(1)
+                separator_line.setStyleSheet(f"background-color: {CyberpunkColors.PRIMARY}; margin: 0;")
+                
+                # Position it just below the title bar
+                def position_separator():
+                    menu_pos = menu_bar.pos()
+                    separator_line.setGeometry(0, menu_pos.y() - 1, self.width(), 1)
+                
+                # Set initial position and add resize handler
+                QTimer.singleShot(100, position_separator)
+                
+                # Add handling to existing resize event
+                original_resize_handler = self.resizeEvent
+                def enhanced_resize_handler(event):
+                    position_separator()
+                    position_title_border()
+                    if original_resize_handler:
+                        original_resize_handler(event)
+                
+                self.resizeEvent = enhanced_resize_handler
+                
+            except Exception:
+                # Silently fail if this doesn't work
+                pass
         
         # Enable context menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1326,7 +1414,7 @@ class MainWindow(QMainWindow):
         # Logo and title
         logo_label = QLabel("🌙")
         logo_label.setStyleSheet("font-size: 24px;")
-        title_label = QLabel("Anarcho CopyBot Super Agent")
+        title_label = QLabel("CryptoBot Super Agent")
         title_label.setStyleSheet(f"""
             color: {CyberpunkColors.PRIMARY};
             font-family: 'Orbitron', sans-serif;
@@ -1359,6 +1447,40 @@ class MainWindow(QMainWindow):
         
         # Create tab widget for different sections
         tab_widget = QTabWidget()
+        
+        # Center the tabs
+        def center_tabs():
+            tab_bar = tab_widget.tabBar()
+            tab_bar.setStyleSheet(f"""
+                QTabBar::tab {{
+                    background-color: {CyberpunkColors.BACKGROUND};
+                    color: {CyberpunkColors.TEXT_LIGHT};
+                    border: 1px solid {CyberpunkColors.PRIMARY};
+                    padding: 8px 16px;
+                    margin-right: 2px;
+                    font-family: 'Rajdhani', sans-serif;
+                }}
+                QTabBar::tab:selected {{
+                    background-color: {CyberpunkColors.PRIMARY};
+                    color: {CyberpunkColors.BACKGROUND};
+                    font-weight: bold;
+                }}
+            """)
+            tab_bar.setExpanding(False)  # Don't expand tabs to fill width
+            tab_bar.setDocumentMode(True)  # Flatter appearance
+            tab_bar.setElideMode(Qt.ElideNone)  # Don't elide text
+            tab_bar.setUsesScrollButtons(True)  # Use scroll buttons for many tabs
+            
+            # Center align the tabs
+            tab_bar.setDrawBase(False)
+            centering_layout = QHBoxLayout()
+            centering_layout.setContentsMargins(0, 0, 0, 0)
+            centering_layout.addStretch()
+            centering_layout.addWidget(tab_bar)
+            centering_layout.addStretch()
+            tab_widget.setLayout(centering_layout)
+        
+        QTimer.singleShot(0, center_tabs)  # Apply after the tab widget is fully initialized
         
         # Dashboard tab
         dashboard_widget = QWidget()
@@ -1415,19 +1537,14 @@ class MainWindow(QMainWindow):
         # Add the new AI Prompt Guide tab - match your existing pattern
         ai_prompt_guide_tab = AIPromptGuideTab()
         tab_widget.addTab(ai_prompt_guide_tab, "AI Prompt Guide")
-        
-        # Create and add tabs for agent settings - convert to instance variables to allow access from save_all_configs
-        self.copybot_tab = CopyBotTab()
-        tab_widget.addTab(self.copybot_tab, "CopyBot Settings")
+        tab_widget.addTab(copybot_tab, "CopyBot Settings")
         
         # Create and add risk management tab
-        self.risk_tab = RiskManagementTab()
-        tab_widget.addTab(self.risk_tab, "Risk Management Settings")
+        risk_tab = RiskManagementTab()
+        tab_widget.addTab(risk_tab, "Risk Settings")
         
-        self.dca_staking_tab = DCAStakingTab()
-        tab_widget.addTab(self.dca_staking_tab, "Advanced DCA Settings")
-        
-        ai_config_tab = AIConfigTab()
+        dca_staking_tab = DCAStakingTab()
+        tab_widget.addTab(dca_staking_tab, "Advanced DCA Settings")
         tab_widget.addTab(ai_config_tab, "AI Settings")
 
         # API Keys tab
@@ -1892,6 +2009,79 @@ class MainWindow(QMainWindow):
         # Stop the timer after 10 seconds
         QTimer.singleShot(10000, timer.stop)
     
+    def enforce_size_during_agent(self, target_size):
+        """Continuously enforce window size during agent operations"""
+        current_size = self.size()
+        
+        # Check if current size is outside acceptable bounds
+        if (abs(current_size.width() - target_size.width()) > 50 or 
+            abs(current_size.height() - target_size.height()) > 50):
+            
+            # Re-apply constraints that allow limited manual resizing
+            self.setMinimumSize(target_size.width() - 50, target_size.height() - 50)
+            self.setMaximumSize(target_size.width() + 50, target_size.height() + 50)
+            
+            # Restore size if it's way outside bounds
+            if (abs(current_size.width() - target_size.width()) > 100 or 
+                abs(current_size.height() - target_size.height()) > 100):
+                self.resize(target_size)
+            
+            # Process events to ensure constraints are applied
+            QApplication.processEvents()
+    
+    def stop_agent(self, agent_name):
+        """Stop an agent with proper thread destruction and cleanup"""
+        # Lock window size during agent stopping
+        current_size = self.size()
+        
+        # Apply constraints that prevent expansion but allow limited manual resizing
+        # Allow 50px of resize flexibility in each dimension
+        self.setMinimumSize(current_size.width() - 50, current_size.height() - 50)
+        self.setMaximumSize(current_size.width() + 50, current_size.height() + 50)
+        # Do not use setFixedSize to allow manual resizing
+        
+        # Process events to ensure constraints are applied immediately
+        QApplication.processEvents()
+        
+        # Set up a temporary timer to maintain size constraints during agent stopping
+        timer_attr_name = f"{agent_name}_stop_timer"
+        setattr(self, timer_attr_name, QTimer(self))
+        timer = getattr(self, timer_attr_name)
+        timer.timeout.connect(lambda: self.enforce_size_during_agent(current_size))
+        timer.start(100)  # Check every 100ms
+        
+        # Stop the timer after 5 seconds
+        QTimer.singleShot(5000, timer.stop)
+        
+        # Check if agent is running
+        if agent_name not in self.agent_threads or self.agent_threads[agent_name] is None:
+            self.console.append_message(f"{agent_name} is not running", "warning")
+            return
+            
+        # Update the UI
+        if agent_name in self.agent_cards:
+            self.agent_cards[agent_name].stop_agent()
+        
+        # Signal the worker to stop
+        worker = self.agent_threads[agent_name]
+        if hasattr(worker, 'running'):
+            worker.running = False
+            
+        # Update menu actions
+        if agent_name in self.agent_menu_actions:
+            self.agent_menu_actions[agent_name].setText(f"Start {agent_name.replace('_', ' ').title()}")
+            self.agent_menu_actions[agent_name].triggered.disconnect()
+            self.agent_menu_actions[agent_name].triggered.connect(lambda: self.start_agent(agent_name))
+        
+        # Wait 500ms, then handle thread cleanup
+        QTimer.singleShot(500, lambda: self._cleanup_agent_thread(agent_name))
+        
+        # Multiple staggered reset calls to ensure constraints are fully released
+        # This helps prevent lingering constraint issues
+        QTimer.singleShot(5100, lambda: self.reset_size_constraints_complete(f"{agent_name} stop-1"))
+        QTimer.singleShot(8000, lambda: self.reset_size_constraints_complete(f"{agent_name} stop-2"))
+        QTimer.singleShot(12000, lambda: self.reset_size_constraints_complete(f"{agent_name} stop-3"))
+    
     def _cleanup_agent_thread(self, agent_name):
         """Clean up agent thread resources after stopping"""
         if agent_name not in self.agent_threads:
@@ -2190,29 +2380,10 @@ WALLETS_TO_TRACK = [
         # File menu
         file_menu = menu_bar.addMenu("File")
         
-        # Add "Save All Configurations" action
-        save_all_configs_action = QAction("Save All Configurations", self)
-        save_all_configs_action.triggered.connect(self.save_all_configs)
-        save_all_configs_action.setShortcut("Ctrl+S")  # Add keyboard shortcut
-        file_menu.addAction(save_all_configs_action)
-        
-        # Add Settings menu
-        settings_menu = menu_bar.addMenu("Settings")
-        
-        # Add Configuration item
-        config_action = QAction("Configuration", self)
-        config_action.triggered.connect(self.show_configuration)
-        settings_menu.addAction(config_action)
-        
-        # Add API Keys item
-        apikeys_action = QAction("API Keys", self)
-        apikeys_action.triggered.connect(self.show_api_keys)
-        settings_menu.addAction(apikeys_action)
-        
-        # Add AI Settings item
-        ai_settings_action = QAction("AI Settings", self)
-        ai_settings_action.triggered.connect(self.show_ai_settings)
-        settings_menu.addAction(ai_settings_action)
+        # Add "Save Configuration" action
+        save_config_action = QAction("Save Configuration", self)
+        save_config_action.triggered.connect(lambda: self.save_config(self.current_config))
+        file_menu.addAction(save_config_action)
         
         # Add "Exit" action
         exit_action = QAction("Exit", self)
@@ -2245,24 +2416,34 @@ WALLETS_TO_TRACK = [
             lambda: self.reset_size_constraints_complete("menu-triggered")
         )
         window_menu.addAction(reset_constraints_action)
-    
-    def save_all_configs(self):
-        """Save all configuration files"""
-        try:
-            # Save CopyBot configuration
-            if hasattr(self, 'copybot_tab') and self.copybot_tab:
-                self.copybot_tab.save_config()
-            
-            # Save DCA & Staking configuration
-            if hasattr(self, 'dca_staking_tab') and self.dca_staking_tab:
-                self.dca_staking_tab.save_config()
-            
-            # Save Risk Management configuration
-            if hasattr(self, 'risk_tab') and self.risk_tab:
-                self.risk_tab.save_config()
-            
-            # Show success message
-            self.console.append_message("All configurations saved successfully", "system")
-        except Exception as e:
-            self.console.append_message(f"Error saving configurations: {str(e)}", "error")
-    
+
+
+class ConfigurationTab(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {CyberpunkColors.BACKGROUND};
+            }}
+            QScrollArea {{
+                background-color: {CyberpunkColors.BACKGROUND};
+                border: 1px solid {CyberpunkColors.PRIMARY};
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: {CyberpunkColors.BACKGROUND};
+            }}
+            QLineEdit, QSpinBox, QDoubleSpinBox {{
+                background-color: {CyberpunkColors.BACKGROUND};
+                color: {CyberpunkColors.TEXT_LIGHT};
+                border: 1px solid {CyberpunkColors.PRIMARY};
+                border-radius: 2px;
+                padding: 2px;
+            }}
+            QSlider::handle {{
+                background-color: {CyberpunkColors.PRIMARY};
+            }}
+            QSlider::groove:horizontal {{
+                background-color: {CyberpunkColors.BACKGROUND};
+                border: 1px solid {CyberpunkColors.PRIMARY};
+            }}
+        """)
