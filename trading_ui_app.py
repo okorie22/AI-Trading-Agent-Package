@@ -510,7 +510,7 @@ class MainWindow(QMainWindow):
         self.initialize_sample_data()
         
         # Add some initial console messages
-        self.console.append_message("🌙 Moon Dev AI Agent Trading System Starting...", "system")
+        self.console.append_message("🌙 Anarcho Capital AI Agent Trading System Starting...", "system")
         self.console.append_message("📊 Active Agents and their Intervals:", "system")
         self.console.append_message("  • Copybot: ✅ ON (Every 30 minutes)", "info")
         self.console.append_message("  • Risk Management: ✅ ON (Every 10 minutes)", "info")

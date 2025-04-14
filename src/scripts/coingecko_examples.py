@@ -1,8 +1,8 @@
 """
-🦎 Moon Dev's CoinGecko API Examples
+🦎 Anarcho Capital's CoinGecko API Examples
 All API endpoints with easy toggle functionality
 
-Created by Moon Dev 🌙
+Created by Anarcho Capital 🌙
 """
 
 import os
@@ -69,7 +69,7 @@ class CoinGeckoExamples:
             "x-cg-pro-api-key": COINGECKO_API_KEY,
             "Content-Type": "application/json"
         }
-        print("🦎 Moon Dev's CoinGecko Examples Initialized!")
+        print("🦎 Anarcho Capital's CoinGecko Examples Initialized!")
         
     def save_response(self, endpoint: str, response: dict):
         """Save API response to file"""

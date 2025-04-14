@@ -27,20 +27,20 @@ class VWAPVolumeStrategy(Strategy):
         self.avg_volume = np.convolve(volume, np.ones(self.vwap_window), 'valid') / self.vwap_window
         self.avg_volume = np.pad(self.avg_volume, (pad_length, 0), 'constant', constant_values=np.nan)
         
-        print("🌙 MOON DEV: VWAP and Volume calculations initialized successfully! 🚀")
+        print("🌙 Anarcho Capital: VWAP and Volume calculations initialized successfully! 🚀")
 
     def next(self):
         # Go long if the closing price is above VWAP and volume is above the threshold
         if self.data.Close[-1] > self.vwap[-1] and self.data.Volume[-1] > self.volume_threshold * self.avg_volume[-1]:
             if not self.position.is_long:
                 self.buy()  # Enter long position
-                print("🌕 MOON DEV: Long position entered! 🚀📈")
+                print("🌕 Anarcho Capital: Long position entered! 🚀📈")
 
         # Go short if the closing price is below VWAP and volume is above the threshold
         elif self.data.Close[-1] < self.vwap[-1] and self.data.Volume[-1] > self.volume_threshold * self.avg_volume[-1]:
             if not self.position.is_short:
                 self.sell()  # Enter short position
-                print("🌑 MOON DEV: Short position entered! 🚀📉")
+                print("🌑 Anarcho Capital: Short position entered! 🚀📉")
 
 # Download Apple (AAPL) data from Yahoo Finance
 ticker = "AAPL"

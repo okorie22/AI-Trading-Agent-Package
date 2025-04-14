@@ -1,5 +1,5 @@
 """
-Moon Dev's Paper Trading Module
+Anarcho Capital's Paper Trading Module
 Provides a wrapper around trading functions for paper trading
 """
 

@@ -1,7 +1,7 @@
 '''
 i run a local server with deepseek-r1, below is how to call it from your code
 
-the deepseek-r1 model is available free while moon dev is streaming: https://www.youtube.com/@moondevonyt 
+the deepseek-r1 model is available free while Anarcho Capital is streaming: https://www.youtube.com/@moondevonyt 
 '''
 
 from openai import OpenAI

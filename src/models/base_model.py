@@ -1,6 +1,6 @@
 """
-🌙 Moon Dev's Model Interface
-Built with love by Moon Dev 🚀
+🌙 Anarcho Capital's Model Interface
+Built with love by Anarcho Capital 🚀
 
 This module defines the base interface for all AI models.
 """

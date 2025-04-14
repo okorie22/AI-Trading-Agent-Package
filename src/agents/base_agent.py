@@ -1,5 +1,5 @@
 """
-🌙 Moon Dev's Base Agent
+🌙 Anarcho Capital's Base Agent
 Parent class for all trading agents
 """
 

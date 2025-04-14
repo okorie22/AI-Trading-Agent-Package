@@ -10,7 +10,7 @@ sys.path.append(project_root)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 """
-Moon Dev's DCA Agent with Helius, Birdeye, and Solana Integration
+Anarcho Capital's DCA Agent with Helius, Birdeye, and Solana Integration
 Integrated with Yield Optimization for maximal profitability.
 """
 
@@ -98,9 +98,21 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
         self.trend_awareness_threshold = TREND_AWARENESS_THRESHOLD  # From config.py
         self.take_profit_percentage = TAKE_PROFIT_PERCENTAGE  # From config.py
         self.fixed_dca_amount = FIXED_DCA_AMOUNT if fixed_dca_amount is None else fixed_dca_amount  # Fixed amount per transaction
-        self.ai_model = AI_MODEL  # Use centralized config value
+        
+        # Load dynamic allocation setting
+        self.use_dynamic_allocation = getattr(sys.modules['src.config'], 'USE_DYNAMIC_ALLOCATION', False)
+        
+        # Check for model override
+        dca_model_override = getattr(sys.modules['src.config'], 'DCA_MODEL_OVERRIDE', "0")
+        if dca_model_override != "0":
+            self.ai_model = dca_model_override
+            info(f"Using model override: {self.ai_model}")
+        else:
+            self.ai_model = AI_MODEL  # Use centralized config value
+        
         self.ai_temperature = AI_TEMPERATURE  # Use centralized config value 
         self.ai_max_tokens = AI_MAX_TOKENS  # Use centralized config value
+        
         self.yield_optimization_interval = YIELD_OPTIMIZATION_INTERVAL  # From config.py
         self.yield_optimization_interval_unit = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_INTERVAL_UNIT', "Hour(s)")
         self.yield_optimization_interval_value = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_INTERVAL_VALUE', 1)
@@ -129,7 +141,7 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
             warning(f"Error initializing AI clients: {str(e)}")
             info("Some AI functionality may not be available")
 
-        info("Moon Dev's DCA Agent initialized!")
+        info("Anarcho Capital's DCA Agent initialized!")
 
         # Add signal if QT is available
         if QT_AVAILABLE:
@@ -139,6 +151,27 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
         # Load scheduled time settings for yield optimization
         self.yield_optimization_run_at_enabled = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_RUN_AT_ENABLED', False)
         self.yield_optimization_run_at_time = getattr(sys.modules['src.config'], 'YIELD_OPTIMIZATION_RUN_AT_TIME', "09:00")
+
+        # In the __init__ method, add these lines after loading other config values:
+        self.allocation_min_multiplier = getattr(sys.modules['src.config'], 'ALLOCATION_MIN_MULTIPLIER', 0.5)
+        self.allocation_max_multiplier = getattr(sys.modules['src.config'], 'ALLOCATION_MAX_MULTIPLIER', 2.0)
+        self.market_condition_weight = getattr(sys.modules['src.config'], 'MARKET_CONDITION_WEIGHT', 0.6)
+        self.ai_recommendation_weight = getattr(sys.modules['src.config'], 'AI_RECOMMENDATION_WEIGHT', 0.4)
+
+        # Initialize DeepSeek client if needed for the model
+        if self.ai_model.startswith("deepseek") and os.getenv("DEEPSEEK_KEY"):
+            deepseek_base_url = getattr(sys.modules['src.config'], 'DCA_DEEPSEEK_BASE_URL', "https://api.deepseek.com")
+            try:
+                self.client_deepseek = openai.OpenAI(
+                    api_key=os.getenv("DEEPSEEK_KEY"),
+                    base_url=deepseek_base_url
+                )
+                info("DeepSeek client initialized for DCA agent")
+            except Exception as e:
+                warning(f"Failed to initialize DeepSeek client: {str(e)}")
+                self.client_deepseek = None
+        else:
+            self.client_deepseek = None
 
     def get_staking_rewards_and_apy(self):
         """Get SOL staking rewards and APY data from different protocols"""
@@ -1073,7 +1106,7 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
 
         except Exception as e:
             error(f"\nError in DCA cycle: {str(e)}")
-            warning("Moon Dev suggests checking the logs and trying again!")
+            warning("Anarcho Capital suggests checking the logs and trying again!")
 
     def test_staking_functionality(self):
         """Test all staking functionality and produce a detailed report"""
@@ -1486,8 +1519,22 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
             
             # Check if we have enough funds for DCA
             balance = self.get_usd_balance()
-            if balance < self.fixed_dca_amount:
-                warning(f"Insufficient balance for DCA. Available: ${balance:.2f}, Required: ${self.fixed_dca_amount:.2f}")
+            
+            # Determine DCA amount based on allocation strategy
+            if self.use_dynamic_allocation:
+                # Use MAX_POSITION_PERCENTAGE to determine allocation
+                max_position_pct = getattr(sys.modules['src.config'], 'MAX_POSITION_PERCENTAGE', 10)
+                # Calculate safe amount to use (respecting CASH_PERCENTAGE)
+                cash_percentage = getattr(sys.modules['src.config'], 'CASH_PERCENTAGE', 20)
+                available_balance = balance * (1 - (cash_percentage / 100))
+                dca_amount = available_balance * (max_position_pct / 100)
+                info(f"Using dynamic allocation: ${dca_amount:.2f} ({max_position_pct}% of available ${available_balance:.2f})")
+            else:
+                dca_amount = self.fixed_dca_amount
+                info(f"Using fixed DCA amount: ${dca_amount:.2f}")
+                
+            if balance < dca_amount:
+                warning(f"Insufficient balance for DCA. Available: ${balance:.2f}, Required: ${dca_amount:.2f}")
                 return
                 
             # Check if tokens are configured for DCA
@@ -1497,7 +1544,7 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
                 
             # Calculate allocation per token
             num_tokens = len(self.dca_tokens)
-            allocation_per_token = self.fixed_dca_amount / num_tokens
+            allocation_per_token = dca_amount / num_tokens
             
             info(f"Allocating ${allocation_per_token:.2f} to each of {num_tokens} tokens")
             
@@ -1920,6 +1967,18 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
                     ]
                 )
                 ai_advice = response.choices[0].message.content
+            elif self.ai_model.startswith("deepseek") and hasattr(self, 'client_deepseek') and self.client_deepseek:
+                info(f"Using DeepSeek's {self.ai_model} for staking advice")
+                response = self.client_deepseek.chat.completions.create(
+                    model=self.ai_model.replace("deepseek-", ""),  # Handle model name formatting
+                    temperature=self.ai_temperature,
+                    max_tokens=self.ai_max_tokens,
+                    messages=[
+                        {"role": "system", "content": "You are Anarcho Capital Staking Bot, an AI that provides staking and yield optimization advice."},
+                        {"role": "user", "content": formatted_prompt}
+                    ]
+                )
+                ai_advice = response.choices[0].message.content
             else:
                 warning(f"Unknown AI model type: {self.ai_model}, falling back to default logic")
                 return None
@@ -1980,6 +2039,133 @@ class DCAAgent(QObject if QT_AVAILABLE else object):
         # Check if we're within 5 minutes of the scheduled time
         time_diff = abs((now - scheduled_time).total_seconds())
         return time_diff <= 300  # Within 5 minutes
+
+    # Add a new method to calculate dynamic allocation:
+    def calculate_dynamic_allocation(self, base_amount):
+        """Calculate dynamic allocation amount based on market conditions and AI recommendations"""
+        try:
+            info("Calculating dynamic allocation...")
+            
+            # Start with the base amount
+            dynamic_amount = base_amount
+            multiplier = 1.0
+            
+            # Get market conditions factor (between 0-1)
+            market_factor = self.assess_market_conditions()
+            
+            # Get AI recommendation factor (between 0-1)
+            ai_factor = self.get_ai_allocation_factor()
+            
+            # Calculate weighted average of factors
+            combined_factor = (
+                market_factor * self.market_condition_weight + 
+                ai_factor * self.ai_recommendation_weight
+            )
+            
+            # Map the combined factor (0-1) to our allocation multiplier range
+            range_size = self.allocation_max_multiplier - self.allocation_min_multiplier
+            multiplier = self.allocation_min_multiplier + (combined_factor * range_size)
+            
+            # Apply multiplier to base amount
+            dynamic_amount = base_amount * multiplier
+            
+            info(f"Dynamic allocation multiplier: {multiplier:.2f}x (market: {market_factor:.2f}, AI: {ai_factor:.2f})")
+            info(f"Base amount: ${base_amount:.2f}, Dynamic amount: ${dynamic_amount:.2f}")
+            
+            return dynamic_amount
+            
+        except Exception as e:
+            error(f"Error calculating dynamic allocation: {str(e)}")
+            return base_amount  # Fall back to base amount
+
+    def assess_market_conditions(self):
+        """Assess current market conditions to determine allocation factor (0-1)"""
+        try:
+            # Get SOL price and trend
+            sol_address = "So11111111111111111111111111111111111111112"
+            current_sol_price = n.token_price(sol_address)
+            
+            # Check if we have historical data to assess trend
+            # For simplicity, we'll use a simple metric: SOL above 20-day MA is bullish
+            sol_20d_ma = 0
+            try:
+                # This is just a placeholder - in a real implementation, you'd get historical data
+                # and calculate the moving average properly
+                sol_20d_ma = current_sol_price * 0.95  # Simulated 20-day MA slightly below current price
+            except Exception as e:
+                debug(f"Error getting SOL historical data: {str(e)}", file_only=True)
+                
+            # Check if SOL is above 20-day MA (bullish indicator)
+            sol_above_ma = current_sol_price > sol_20d_ma
+            
+            # Get general market volatility
+            volatility_factor = min(self.max_volatility_threshold, 0.03) / self.max_volatility_threshold
+            
+            # Calculate overall market factor (0-1)
+            market_factor = 0.5  # Default to neutral
+            
+            if sol_above_ma:
+                market_factor += 0.25  # Bullish SOL trend
+            
+            # Lower volatility is better for DCA
+            market_factor += (1 - volatility_factor) * 0.25
+            
+            # Ensure factor is between 0-1
+            market_factor = max(0, min(1, market_factor))
+            
+            info(f"Market conditions: SOL ${current_sol_price:.2f}, Above MA: {sol_above_ma}, Factor: {market_factor:.2f}")
+            
+            return market_factor
+            
+        except Exception as e:
+            warning(f"Error assessing market conditions: {str(e)}")
+            return 0.5  # Default to neutral
+
+    def get_ai_allocation_factor(self):
+        """Get allocation factor from AI recommendations (0-1)"""
+        try:
+            # Get AI recommendation
+            ai_rec = self.get_ai_staking_advice()
+            
+            # Default to neutral (0.5) if no AI recommendation
+            if not ai_rec:
+                return 0.5
+                
+            # Check conversion recommendation
+            convert_recommended = ai_rec.get("convert", False)
+            
+            # Parse reasoning for sentiment
+            reasoning = ai_rec.get("reasoning", "")
+            positive_keywords = ["bullish", "growth", "opportunity", "uptrend", "increase", "profit"]
+            negative_keywords = ["bearish", "caution", "risk", "downtrend", "decrease", "loss"]
+            
+            # Simple sentiment analysis on reasoning
+            positive_count = sum(1 for word in positive_keywords if word.lower() in reasoning.lower())
+            negative_count = sum(1 for word in negative_keywords if word.lower() in reasoning.lower())
+            
+            # Calculate sentiment factor (-1 to 1)
+            total_keywords = positive_count + negative_count
+            sentiment = 0
+            if total_keywords > 0:
+                sentiment = (positive_count - negative_count) / total_keywords
+            
+            # Map sentiment from -1,1 to 0,1
+            sentiment_factor = (sentiment + 1) / 2
+            
+            # Calculate overall AI factor (0-1)
+            ai_factor = sentiment_factor
+            
+            # Add bonus for convert recommendation
+            if convert_recommended:
+                ai_factor = min(1.0, ai_factor + 0.2)
+            
+            info(f"AI allocation factor: {ai_factor:.2f} (sentiment: {sentiment_factor:.2f}, convert: {convert_recommended})")
+            
+            return ai_factor
+            
+        except Exception as e:
+            warning(f"Error getting AI allocation factor: {str(e)}")
+            return 0.5  # Default to neutral
 
 if __name__ == "__main__":
     dca_agent = DCAAgent(fixed_dca_amount=10)  # Set fixed DCA amount

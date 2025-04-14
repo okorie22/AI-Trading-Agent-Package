@@ -1,6 +1,6 @@
 """
-🌙 Moon Dev's DeepSeek Model Implementation
-Built with love by Moon Dev 🚀
+🌙 Anarcho Capital's DeepSeek Model Implementation
+Built with love by Anarcho Capital 🚀
 """
 
 from openai import OpenAI

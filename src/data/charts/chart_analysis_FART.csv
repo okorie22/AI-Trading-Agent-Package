@@ -53,3 +53,6 @@ FART,4h,NOTHING,60,0.92443,"Mixed signals with high RSI, decreasing volume, neut
 FART,4h,BUY,65,0.93502,"Price above EMAs, MACD bullish",1744482188.537955,NEUTRAL,BULLISH,Decreasing,0.89,,
 FART,4h,SELL,65,0.93946,"RSI overbought, MACD divergence, decreasing volume",1744485494.453112,NEUTRAL,BEARISH,Decreasing,0.96,,
 FART,4h,SELL,60,0.92489,Overbought RSI (73.23) & weakening MACD momentum,1744493448.264094,NEUTRAL,BEARISH,Decreasing,0.934,30.76923076923077,inf
+FART,4h,SELL,55,0.88055,"MACD bearish crossover, RSI near overbought, decreasing volume",1744497558.117582,NEUTRAL,BEARISH,Decreasing,0.93,32.075471698113205,inf
+FART,4h,SELL,60,0.88335,"Bearish MACD crossover, high RSI, decreasing volume",1744499121.906985,NEUTRAL,BEARISH,Decreasing,0.94,33.33333333333333,inf
+FART,4h,NOTHING,50,0.89598,"Mixed signals: Neutral RSI, MACD convergence, decreasing volume",1744507272.958582,NEUTRAL,SIDEWAYS,Decreasing,0.89,32.72727272727273,inf

@@ -1,6 +1,6 @@
 """
-🌙 Moon Dev's Claude Model Implementation
-Built with love by Moon Dev 🚀
+🌙 Anarcho Capital's Claude Model Implementation
+Built with love by Anarcho Capital 🚀
 """
 
 from anthropic import Anthropic

@@ -1,6 +1,6 @@
 """
-Moon Dev's Nice Functions - A collection of utility functions for trading
-Built with love by Moon Dev
+Anarcho Capital's Nice Functions - A collection of utility functions for trading
+Built with love by Anarcho Capital
 """
 
 from dotenv import load_dotenv
@@ -227,7 +227,7 @@ os.makedirs('temp_data', exist_ok=True)
 
 def cleanup_temp_data():
     if os.path.exists('temp_data'):
-        info("Moon Dev cleaning up temporary data...")
+        info("Anarcho Capital cleaning up temporary data...")
         shutil.rmtree('temp_data')
 
 atexit.register(cleanup_temp_data)
@@ -1177,7 +1177,7 @@ def breakout_entry(symbol, BREAKOUT_PRICE):
         chunk_size = str(chunk_size)
 
 def ai_entry(symbol, amount):
-    """AI agent entry function for Moon Dev's trading system"""
+    """AI agent entry function for Anarcho Capital's trading system"""
     info("AI Trading Agent initiating position entry")
     
     # amount passed in is the target allocation (up to 30% of usd_size)

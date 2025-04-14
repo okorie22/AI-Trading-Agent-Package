@@ -1,6 +1,6 @@
 """
-🌙 Moon Dev's Gemini Model Implementation
-Built with love by Moon Dev 🚀
+🌙 Anarcho Capital's Gemini Model Implementation
+Built with love by Anarcho Capital 🚀
 """
 
 import google.generativeai as genai

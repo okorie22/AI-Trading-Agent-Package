@@ -1,7 +1,7 @@
 """
-Moon Dev's OHLCV Data Collector
+Anarcho Capital's OHLCV Data Collector
 Collects Open-High-Low-Close-Volume data for specified tokens
-Built with love by Moon Dev
+Built with love by Anarcho Capital
 """
 
 from src.config import *

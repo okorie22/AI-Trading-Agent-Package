@@ -17,7 +17,7 @@ class TokenAccountTracker:
         self.rpc_endpoint = os.getenv("RPC_ENDPOINT")
         if not self.rpc_endpoint:
             raise ValueError("Please set RPC_ENDPOINT environment variable!")
-        info("Connected to Helius RPC endpoint... Moon Dev is ready!")
+        info("Connected to Helius RPC endpoint... Anarcho Capital is ready!")
 
         # Check if BirdEye API is available
         self.birdeye_available = self.check_birdeye_api_available()
@@ -649,7 +649,7 @@ class TokenAccountTracker:
         """Track token accounts for all wallets in the WALLETS_TO_TRACK list."""
         global previous_monitored_tokens, previous_mode, MONITORED_TOKENS
 
-        system("Moon Dev's Token Tracker starting up...")
+        system("Anarcho Capital's Token Tracker starting up...")
         info(f"Tracking {len(WALLETS_TO_TRACK)} wallets...")
 
         # Load cache and check if it was newly created

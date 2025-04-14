@@ -1,6 +1,6 @@
 """
-Moon Dev's Chart Analysis Agent
-Built with love by Moon Dev
+Anarcho Capital's Chart Analysis Agent
+Built with love by Anarcho Capital
 
 Chuck the Chart Agent generates and analyzes trading charts using AI vision capabilities.
 """
@@ -20,9 +20,9 @@ from src import nice_funcs as n
 from src import nice_funcs_hl as hl
 from src.agents.base_agent import BaseAgent
 from src.config import (
-    DCA_MONITORED_TOKENS, TIMEFRAMES, LOOKBACK_BARS, CHECK_INTERVAL_MINUTES,
-    CHART_INDICATORS, CHART_STYLE, CHART_VOLUME_PANEL, CHART_ANALYSIS_PROMPT,
-    CHART_MODEL_OVERRIDE, CHART_DEEPSEEK_BASE_URL,
+    TOKEN_MAP, DCA_MONITORED_TOKENS, TIMEFRAMES, LOOKBACK_BARS, CHART_ANALYSIS_INTERVAL_MINUTES,
+    CHART_INDICATORS, CHART_STYLE, CHART_VOLUME_PANEL, CHART_MODEL_OVERRIDE,
+    CHART_DEEPSEEK_BASE_URL, CHART_ANALYSIS_PROMPT, VOICE_MODEL, VOICE_NAME, VOICE_SPEED,
     AI_MODEL, AI_TEMPERATURE, AI_MAX_TOKENS,
     ENABLE_FIBONACCI, FIBONACCI_LEVELS, FIBONACCI_LOOKBACK_PERIODS,
     CHART_RUN_AT_ENABLED, CHART_RUN_AT_TIME, CHART_INTERVAL_UNIT, CHART_INTERVAL_VALUE
@@ -746,7 +746,7 @@ class ChartAnalysisAgent(BaseAgent):
                 response = self.deepseek_client.chat.completions.create(
                     model=CHART_MODEL_OVERRIDE.replace("deepseek-", "deepseek-"),  # Ensure correct model name format
                     messages=[
-                        {"role": "system", "content": "You are Moon Dev's Chart Analysis Agent. Analyze chart data and recommend BUY, SELL, or NOTHING."},
+                        {"role": "system", "content": "You are Anarcho Capital's Chart Analysis Agent. Analyze chart data and recommend BUY, SELL, or NOTHING."},
                         {"role": "user", "content": context}
                     ],
                     max_tokens=self.ai_max_tokens,
@@ -759,7 +759,7 @@ class ChartAnalysisAgent(BaseAgent):
                 response = self.openai_client.chat.completions.create(
                     model=CHART_MODEL_OVERRIDE,
                     messages=[
-                        {"role": "system", "content": "You are Moon Dev's Chart Analysis Agent. Analyze chart data and recommend BUY, SELL, or NOTHING."},
+                        {"role": "system", "content": "You are Anarcho Capital's Chart Analysis Agent. Analyze chart data and recommend BUY, SELL, or NOTHING."},
                         {"role": "user", "content": context}
                     ],
                     max_tokens=self.ai_max_tokens,
@@ -1173,8 +1173,8 @@ class ChartAnalysisAgent(BaseAgent):
             # Otherwise run based on the interval
             self.run_monitoring_cycle()
             
-            # Sleep based on CHECK_INTERVAL_MINUTES
-            time.sleep(CHECK_INTERVAL_MINUTES * 60)
+            # Sleep based on CHART_ANALYSIS_INTERVAL_MINUTES
+            time.sleep(CHART_ANALYSIS_INTERVAL_MINUTES * 60)
 
     def _calculate_recommendation_accuracy(self, symbol):
         """Calculate the accuracy of historical recommendations"""

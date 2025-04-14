@@ -1,14 +1,10 @@
 """
-Moon Dev's CopyBot Agent
+Anarcho Capital's CopyBot Agent
 Analyzes current copybot positions to identify opportunities for increased position sizes
-
-video for copy bot: https://youtu.be/tQPRW19Qcak?si=b6rAGpz4CuXKXyzn
 
 think about list
 - not all these tokens will have OHLCV data so we need to address that some how
 - good to pass in BTC/ETH data too in order to see market structure
-
-Need an API key? for a limited time, bootcamp members get free api keys for claude, openai, helius, birdeye & quant elite gets access to the moon dev api. join here: https://algotradecamp.com
 """
 
 import os
@@ -86,7 +82,7 @@ DUST_THRESHOLD = 0.5  # Minimum USD value to consider for trading (ignore dust)
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API
 
 class CopyBotAgent(QObject):
-    """Moon Dev's CopyBot Agent 🤖"""
+    """Anarcho Capital's CopyBot Agent 🤖"""
     
     # Update the signal to include change_percent and symbol
     analysis_complete = Signal(str, str, str, str, str, str, str, str, str)  # timestamp, action, token, token_symbol, analysis, confidence, price, change_percent, token_mint
@@ -98,6 +94,9 @@ class CopyBotAgent(QObject):
         """Initialize the CopyBot agent with multiple LLM options"""
         super().__init__()  # Initialize QObject
         load_dotenv()
+        
+        # Track if this is the first run (to skip analysis and execution if configured)
+        self.is_first_run = True
         
         # Add market data cache to avoid collecting data more than once
         self.market_data_cache = {}
@@ -211,7 +210,7 @@ class CopyBotAgent(QObject):
             info(f"Using AI Model: {config.COPYBOT_MODEL_OVERRIDE if config.COPYBOT_MODEL_OVERRIDE != '0' else self.ai_model}")
         
         self.recommendations_df = pd.DataFrame(columns=['token', 'action', 'confidence', 'reasoning'])
-        info("Moon Dev's CopyBot Agent initialized!" + 
+        info("Anarcho Capital's CopyBot Agent initialized!" + 
               (" (Mirror mode)" if not self.ai_analysis_available else " with multi-model support!") +
               (" with LEVERAGE trading" if self.trading_mode == "leverage" else " with SPOT trading"))
         
@@ -224,8 +223,23 @@ class CopyBotAgent(QObject):
         }
         self.model_name = config.AI_MODEL
         
-        # AI analysis availability
-        self.ai_analysis_available = os.getenv("ENABLE_AI_ANALYSIS", "true").lower() == "true"
+        # AI analysis availability - use config setting instead of env var
+        try:
+            from src.config import ENABLE_AI_ANALYSIS
+            self.ai_analysis_available = ENABLE_AI_ANALYSIS and (
+                (self.anthropic_client is not None) or 
+                (self.deepseek_client is not None) or 
+                (self.openai_client is not None)
+            )
+            if not self.ai_analysis_available:
+                if not ENABLE_AI_ANALYSIS:
+                    warning("AI Analysis is disabled in config settings. Running in mirror-only mode.")
+                else:
+                    warning("No AI models available even though AI Analysis is enabled. Check API keys.")
+                self.mirror_mode_active.emit(True)
+        except ImportError:
+            warning("ENABLE_AI_ANALYSIS not found in config. Defaulting to enabled.")
+            self.ai_analysis_available = True
         
         # Get trading mode
         self.trading_mode = "spot"  # Default to spot trading
@@ -375,7 +389,7 @@ class CopyBotAgent(QObject):
                 response = self.deepseek_client.chat.completions.create(
                     model=selected_model,  # Use the exact selected model, not hardcoded
                     messages=[
-                        {"role": "system", "content": "You are Moon Dev's CopyBot Agent. Analyze portfolio data and recommend BUY, SELL, or NOTHING."},
+                        {"role": "system", "content": "You are Anarcho Capital's CopyBot Agent. Analyze portfolio data and recommend BUY, SELL, or NOTHING."},
                         {"role": "user", "content": prompt}
                     ],
                     max_tokens=self.ai_max_tokens,
@@ -388,7 +402,7 @@ class CopyBotAgent(QObject):
                 response = self.openai_client.chat.completions.create(
                     model=selected_model,
                     messages=[
-                        {"role": "system", "content": "You are Moon Dev's CopyBot Agent. Analyze portfolio data and recommend BUY, SELL, or NOTHING."},
+                        {"role": "system", "content": "You are Anarcho Capital's CopyBot Agent. Analyze portfolio data and recommend BUY, SELL, or NOTHING."},
                         {"role": "user", "content": prompt}
                     ],
                     max_tokens=self.ai_max_tokens,
@@ -1140,6 +1154,13 @@ Confidence should reflect your agreement with the wallet's action, with higher c
             # Track start time for performance monitoring
             start_time = time.time()
             
+            # Check if this is the first run and if we should skip analysis
+            first_run = self.is_first_run
+            if first_run:
+                self.is_first_run = False  # Set to false for future runs
+                if getattr(config, 'COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN', True):
+                    info("\nFirst run detected. Fetching tokens without analysis or execution...")
+            
             # Initialize or clear market data cache for fresh data this cycle
             if not hasattr(self, 'market_data_cache'):
                 self.market_data_cache = {}
@@ -1173,6 +1194,13 @@ Confidence should reflect your agreement with the wallet's action, with higher c
                     self.changes_detected.emit(changes)
                     info(f"\nDetected {len(wallet_changes.get('new', {}))} new tokens, {len(wallet_changes.get('removed', {}))} removed tokens, and {len(wallet_changes.get('modified', {}))} modified tokens in wallet {wallet}")
                     break
+            
+            # If this is the first run and we should skip analysis, exit early
+            if first_run and getattr(config, 'COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN', True):
+                info("\nSkipping analysis and execution on first run (token fetching only).")
+                elapsed = time.time() - start_time
+                info(f"First run token fetching completed in {elapsed:.2f} seconds")
+                return
             
             # If no changes detected, skip the rest of the cycle
             if not has_changes:

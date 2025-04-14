@@ -1,6 +1,6 @@
 """
-🌙 Moon Dev's Configuration File
-Built with love by Moon Dev 🚀
+🌙 Anarcho Capital's Configuration File
+Built with love by Anarcho Capital 🚀
 """
 
 import os
@@ -31,7 +31,7 @@ USDC_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # Never trade or 
 SOL_ADDRESS = "So11111111111111111111111111111111111111111"   # Never trade or close
 
 # Create a list of addresses to exclude from trading/closing
-EXCLUDED_TOKENS = [USDC_ADDRESS, SOL_ADDRESS, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'So11111111111111111111111111111111111111111']
+EXCLUDED_TOKENS = [USDC_ADDRESS, SOL_ADDRESS]
 
 # Token and wallet settings
 symbol = '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump'  # input ticker symbol (FART) here for main token to focus on
@@ -59,28 +59,29 @@ previous_monitored_tokens = []
 tokens_to_trade = MONITORED_TOKENS  
 
 # CopyBot Runtime Mode
-COPYBOT_CONTINUOUS_MODE = False
-COPYBOT_INTERVAL_MINUTES = 5
+COPYBOT_CONTINUOUS_MODE = True
+COPYBOT_INTERVAL_MINUTES = 35
+COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN = True
 
 #CopyBot Settings
 FILTER_MODE = "Dynamic"
-PERCENTAGE_THRESHOLD = 0.1
-AMOUNT_THRESHOLD = 5000
+PERCENTAGE_THRESHOLD = 5.1
+AMOUNT_THRESHOLD = 5003
 ENABLE_PERCENTAGE_FILTER = True
 ENABLE_AMOUNT_FILTER = True
-ENABLE_ACTIVITY_FILTER = False
-ACTIVITY_WINDOW_HOURS = 1
+ENABLE_ACTIVITY_FILTER = True
+ACTIVITY_WINDOW_HOURS = 9
 
 # CopyBot Mirror Trading Settings
 COPYBOT_AUTO_BUY_NEW_TOKENS = True  # Auto-buy new tokens in mirror mode
 COPYBOT_AUTO_SELL_REMOVED_TOKENS = True  # Auto-sell removed tokens
-COPYBOT_WALLET_ACTION_WEIGHT = 0.7
+COPYBOT_WALLET_ACTION_WEIGHT = 0.6
 COPYBOT_MIRROR_EXACT_PERCENTAGE = True  # Mirror exact percentage changes from tracked wallets
 
 # API and Network Settings 🌐
-API_SLEEP_SECONDS = 1.0
-API_TIMEOUT_SECONDS = 30
-API_MAX_RETRIES = 5
+API_SLEEP_SECONDS = 1.8
+API_TIMEOUT_SECONDS = 37
+API_MAX_RETRIES = 10
 
 # List of wallets to track for CopyBot - Must be in the correct format
 WALLETS_TO_TRACK = WALLETS_TO_TRACK = [
@@ -91,7 +92,7 @@ WALLETS_TO_TRACK = WALLETS_TO_TRACK = [
 
 # CopyBot Portfolio Analysis Prompt - The AI prompt template for analysis
 PORTFOLIO_ANALYSIS_PROMPT = """
-You are Moon Dev's CopyBot Agent 🌙
+You are Anarcho Capital's CopyBot Agent 🌙
 
 Your task is to analyze the current copybot portfolio positions and market data to identify which positions deserve larger allocations.
 
@@ -124,37 +125,40 @@ Remember:
 - Do not worry about the low position size of the copybot, but more so worry about the size vs the others in the portfolio. this copy bot acts as a scanner for you to see what type of opportunties are out there and trending. 
 - Look for high-conviction setups
 - Consider both position performance against others in the list and market conditions
-
 """
 
 # Model override settings for CopyBot
 COPYBOT_MODEL_OVERRIDE = "deepseek-reasoner"
 
 # CopyBot AI Configuration 
-COPYBOT_MIN_CONFIDENCE = 80
+COPYBOT_MIN_CONFIDENCE = 79
+ENABLE_AI_ANALYSIS = True# Toggle for AI analysis in CopyBot
 
 # Position sizing 🎯
-usd_size = 25.0# account_balance * 0.085 or 0.12: Size of position to hold
-max_usd_order_size = 3.0# Max order size
-tx_sleep = 15.0# Sleep between transactions
-slippage = 199# 500 = 5% and 50 = .5% slippage
-PRIORITY_FEE = 100000# ~0.02 USD at current SOL prices
-orders_per_open = 3# Multiple orders for better fill rates
+usd_size = 30.0# account_balance * 0.085 or 0.12: Size of position to hold
+max_usd_order_size = 6.0# Max order size
+tx_sleep = 18.0# Sleep between transactions
+slippage = 219# 500 = 5% and 50 = .5% slippage
+PRIORITY_FEE = 100006# ~0.02 USD at current SOL prices
+orders_per_open = 5# Multiple orders for better fill rates
+
+DAYSBACK_4_DATA = 6
+DATA_TIMEFRAME = '1H'
 
 # Paper Trading Settings 📝
 PAPER_TRADING_ENABLED = False# Toggle paper trading mode on/off
-PAPER_INITIAL_BALANCE = 1000.0# Initial paper trading balance in USD
-PAPER_TRADING_SLIPPAGE = 100# Simulated slippage for paper trades (100 = 1%)
+PAPER_INITIAL_BALANCE = 1005.0# Initial paper trading balance in USD
+PAPER_TRADING_SLIPPAGE = 104# Simulated slippage for paper trades (100 = 1%)
 PAPER_TRADING_RESET_ON_START = False# Whether to reset paper portfolio on app start
 
 # Risk Management Settings 🛡️
-CASH_PERCENTAGE = 20# Minimum % to keep in USDC as safety buffer (0-100)
-MAX_POSITION_PERCENTAGE = 10# Maximum % allocation per position (0-100)
+CASH_PERCENTAGE = 23# Minimum % to keep in USDC as safety buffer (0-100)
+MAX_POSITION_PERCENTAGE = 14# Maximum % allocation per position (0-100)
 STOPLOSS_PRICE = 2 # NOT USED YET 1/5/25    
 BREAKOUT_PRICE = .0002 # NOT USED YET 1/5/25
-SLEEP_AFTER_CLOSE = 900# Prevent overtrading
+SLEEP_AFTER_CLOSE = 904# Prevent overtrading
 
-MAX_LOSS_GAIN_CHECK_HOURS = 24# How far back to check for max loss/gain limits (in hours)
+MAX_LOSS_GAIN_CHECK_HOURS = 29# How far back to check for max loss/gain limits (in hours)
 SLEEP_BETWEEN_RUNS_MINUTES = 10  # How long to sleep between agent runs 🕒
 
 # Max Loss/Gain Settings FOR RISK AGENT 1/5/25
@@ -165,12 +169,12 @@ MAX_LOSS_USD = 25.0# Maximum loss in USD before stopping trading
 MAX_GAIN_USD = 25.0# Maximum gain in USD before stopping trading
 
 # USD MINIMUM BALANCE RISK CONTROL
-MINIMUM_BALANCE_USD = 100.0# account_balance * (1/3): If balance falls below this, risk agent will consider closing all positions
-USE_AI_CONFIRMATION = True
+MINIMUM_BALANCE_USD = 108.0# account_balance * (1/3): If balance falls below this, risk agent will consider closing all positions
+USE_AI_CONFIRMATION = True#risk agent ai confirmation
 
 # Percentage-based limits (used if USE_PERCENTAGE is True)
-MAX_LOSS_PERCENT = 20# Maximum loss as percentage (e.g., 20 = 20% loss)
-MAX_GAIN_PERCENT = 200# Maximum gain as percentage (e.g., 50 = 50% gain)
+MAX_LOSS_PERCENT = 23# Maximum loss as percentage (e.g., 20 = 20% loss)
+MAX_GAIN_PERCENT = 500# Maximum gain as percentage (e.g., 50 = 50% gain)
 
 # Agent Runtime Settings ⏱️
 #RISK_INTERVAL_MINUTES = RISK_CHECK_INTERVAL_MINUTES  # How often Risk Agent checks portfolio (in minutes)
@@ -194,33 +198,33 @@ TOKEN_TO_HL_MAPPING = TOKEN_TO_HL_MAPPING = {
 
 # 🛡️ Risk Override Prompt - The Secret Sauce!
 RISK_OVERRIDE_PROMPT = """
+You are Anarcho Capital's Risk Management Agent 📈
 
-You are Moon Dev's Risk Management Agent 🌙
-
-Your task is to analyze the positions and determine if any should be closed based on the risk management parameters.
+Your task is to analyze the current portfolio and market conditions to determine the optimal risk level for your trading strategy.
 
 Data provided:
-1. Current positions and their performance (profit/loss)
-2. Risk management parameters (max loss, max gain, etc.)
-3. Market data for each position
+1. Current portfolio composition and performance
+2. OHLCV market data for each position
+3. Technical indicators (MA20, MA40, ABOVE OR BELOW)
 
 Analysis Criteria:
-1. Has the position hit max loss threshold?
-2. Has the position hit max gain threshold?
-3. Is the position showing weakness/strength?
-4. What is the overall market condition?
+1. Risk management metrics
+2. Price action and momentum
+3. Volume analysis
+4. Risk/reward ratio
+5. Market conditions
 
-{position_data}
+{portfolio_data}
 {market_data}
-{risk_parameters}
 
 Respond in this exact format:
-1. First line must be one of: CLOSE, HOLD, or URGENT (in caps)
+1. First line must be one of: BUY, SELL, or NOTHING (in caps)
 2. Then explain your reasoning, including:
-   - Position performance analysis
    - Risk assessment
+   - Technical analysis
+   - Volume profile
+   - Risk/reward ratio
    - Market conditions
-   - Risk management rule violations
    - Confidence level (as a percentage, e.g. 75%)
 
 Remember: 
@@ -228,44 +232,62 @@ Remember:
 - Be conservative in volatile markets
 - Consider both absolute and percentage-based thresholds
 - Provide clear, actionable advice
-
 """
 
 # Risk Agent AI Configuration
-RISK_MODEL_OVERRIDE = "0"  # "0" uses default, or: "deepseek-chat", "deepseek-reasoner", "gpt-4"
+RISK_MODEL_OVERRIDE = "deepseek-reasoner"
 RISK_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API
 RISK_CHECK_INTERVAL_MINUTES = 10
-RISK_LOSS_CONFIDENCE_THRESHOLD = 90  # Minimum confidence to override max loss limits (0-100)
-RISK_GAIN_CONFIDENCE_THRESHOLD = 60  # Minimum confidence to override max gain limits (0-100)
-RISK_CONTINUOUS_MODE = False# When True, Risk Agent runs continuously instead of on interval
+RISK_LOSS_CONFIDENCE_THRESHOLD = 77# Minimum confidence to override max loss limits (0-100)
+RISK_GAIN_CONFIDENCE_THRESHOLD = 70# Minimum confidence to override max gain limits (0-100)
+RISK_CONTINUOUS_MODE = True# When True, Risk Agent runs continuously instead of on interval
 
 
 # Specific tokens for DCA Agent
-TOKEN_MAP = TOKEN_MAP = {
-    '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': ('FART', 'FARTCOIN'),
+TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = {
     'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC': ('AI16Z', 'AI16Z'),
     'So11111111111111111111111111111111111111112': ('SOL', 'SOL'),
+    '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump': ('FART', 'FARTCOIN'),
 }
 
 DCA_MONITORED_TOKENS = list(TOKEN_MAP.keys())
 
+DCA_MONITORED_TOKENS = [
+    'VFdxjTdFzXrYr3ivWyf64NuXo9U7vdPK7AG7idnNZJV',
+    'CR2L1ob96JGWQkdFbt8rLwqdLLmqFwjcNGL2eFBn1RPt',
+    '2HdzfUiFWfZHZ544ynffeneuibbDK6biCdjovejr8ez9',
+    'C94njgTrKMQBmgqe23EGLrtPgfvcjWtqBBvGQ7Cjiank',
+    '67mTTGnVRunoSLGitgRGK2FJp5cT1KschjzWH9zKc3r',
+    '9YnfbEaXPaPmoXnKZFmNH8hzcLyjbRf56MQP7oqGpump',
+    'DayN9FxpLAeiVrFQnRxwjKq7iVQxTieVGybhyXvSpump',
+]
+
+
+# DCA Dynamic Allocation settings
+USE_DYNAMIC_ALLOCATION = False
+TAKE_PROFIT_PERCENTAGE = 206
+FIXED_DCA_AMOUNT = 14
+
 # DCA & Staking settings
-STAKING_ALLOCATION_PERCENTAGE = 30
-DCA_INTERVAL_MINUTES = 720
-DCA_INTERVAL_UNIT = "Hour(s)"  # One of: "Hour(s)", "Day(s)", "Week(s)", "Month(s)"
-DCA_INTERVAL_VALUE = 12        # Number of units (e.g., 12 hours)
-DCA_RUN_AT_ENABLED = False     # Whether to run at a specific time of day
-DCA_RUN_AT_TIME = "09:00"      # Time to run DCA (24-hour format)
-TAKE_PROFIT_PERCENTAGE = 200
-FIXED_DCA_AMOUNT = 10
+STAKING_ALLOCATION_PERCENTAGE = 35
+DCA_INTERVAL_MINUTES = 30240
+DCA_INTERVAL_UNIT = "Day(s)"
+DCA_INTERVAL_VALUE = 21
+DCA_RUN_AT_ENABLED = False
+DCA_RUN_AT_TIME = "12:00"
+
 MAX_VOLATILITY_THRESHOLD = 0.05  # Maximum volatility threshold for risk-based sizing
 TREND_AWARENESS_THRESHOLD = 50  # RSI threshold for trend awareness
-YIELD_OPTIMIZATION_INTERVAL = 3600  # Run yield optimization every hour (in seconds)
+YIELD_OPTIMIZATION_INTERVAL = 28800
+
+# DCA AI Model override settings
+DCA_MODEL_OVERRIDE = "deepseek-reasoner"
+DCA_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API if using DeepSeek models
+
 
 # Updated DCA & Staking AI Prompt with proper variables
 DCA_AI_PROMPT = """
-
-You are Moon Dev Staking Bot, an advanced AI designed to analyze staking opportunities and optimize yield on the Solana blockchain.
+You are Anarcho Capital's Staking Agent, an advanced AI designed to analyze staking opportunities and optimize yield on the Solana blockchain.
 
 Given the following data:
 {token_list}
@@ -288,7 +310,6 @@ Your response must include:
 - REASONING: [brief explanation]
 
 Current staking protocols: marinade, lido, jito
-
 """
 
 # Add these
@@ -301,40 +322,43 @@ JUPITER_API_URL = "https://quote-api.jup.ag/v6"
 JUPITER_FEE_ACCOUNT = "FG4Y3yX4AAchp1HvNZ7LfzFTewF2f6nDoMDCohTFrdpT"  # For referral fees
 
 # Add these staking configuration options
-STAKING_MODE = "separate"
-AUTO_CONVERT_THRESHOLD = 10
+STAKING_MODE = 'auto_convert'
+AUTO_CONVERT_THRESHOLD = 13
 MIN_CONVERSION_AMOUNT = 5
 MAX_CONVERT_PERCENTAGE = 25
 
 # Add these in the DCA & Staking settings section of config.py, after YIELD_OPTIMIZATION_INTERVAL
-YIELD_OPTIMIZATION_INTERVAL_UNIT = "Hour(s)"  # One of: "Hour(s)", "Day(s)", "Week(s)", "Month(s)"
-YIELD_OPTIMIZATION_INTERVAL_VALUE = 1  # Number of units (e.g., 1 hour)
-YIELD_OPTIMIZATION_RUN_AT_ENABLED = False  # Whether to run at a specific time of day
-YIELD_OPTIMIZATION_RUN_AT_TIME = "09:00"  # Time to run yield optimization (24-hour format)
+YIELD_OPTIMIZATION_INTERVAL_UNIT = "Hour(s)"
+YIELD_OPTIMIZATION_INTERVAL_VALUE = 8
+YIELD_OPTIMIZATION_RUN_AT_ENABLED = True
+YIELD_OPTIMIZATION_RUN_AT_TIME = "13:00"
 
 # Advanced DCA settings
-BUY_CONFIDENCE_THRESHOLD = 50
-SELL_CONFIDENCE_THRESHOLD = 75
+BUY_CONFIDENCE_THRESHOLD = 39
+SELL_CONFIDENCE_THRESHOLD = 85
 BUY_MULTIPLIER = 1.5  # Buy 50% more than standard amount
 MAX_SELL_PERCENTAGE = 25  # Maximum % of holdings to sell (caps at 25%)
 
+ENABLE_CHART_ANALYSIS = True
+ENABLE_STAKING_AI = True
+
 # Chart Analysis Agent Settings 📊
-CHECK_INTERVAL_MINUTES = 120
-CHART_INTERVAL_UNIT = "Hour(s)"  # One of: "Hour(s)", "Day(s)", "Week(s)", "Month(s)"
-CHART_INTERVAL_VALUE = 2         # Number of units (e.g., 2 hours)
-CHART_RUN_AT_ENABLED = False     # Whether to run at a specific time of day
-CHART_RUN_AT_TIME = "09:00"      # Time to run Chart Analysis (24-hour format)
-TIMEFRAMES = ['4h']
-LOOKBACK_BARS = 100
-CHART_INDICATORS = ['20EMA', '50EMA', '100EMA', '200SMA', 'MACD', 'RSI']
+CHART_ANALYSIS_INTERVAL_MINUTES = 180  # Renamed from CHECK_INTERVAL_MINUTES and changed default value
+CHART_INTERVAL_UNIT = "Hour(s)"
+CHART_INTERVAL_VALUE = 6
+CHART_RUN_AT_ENABLED = True
+CHART_RUN_AT_TIME = "12:00"
+TIMEFRAMES = ['1d']
+LOOKBACK_BARS = 104
+CHART_INDICATORS = ['20EMA', '50EMA', '100EMA', '200SMA', 'MACD', 'RSI', 'ATR']#20EMA,50EMA,100EMA,200SMA,MACD,RSI,ATR
 CHART_STYLE = 'yahoo'
 CHART_VOLUME_PANEL = True
 
 # Fibonacci retracement settings
-ENABLE_FIBONACCI = True  # Whether to use Fibonacci retracement for entry price calculations
-FIBONACCI_LEVELS = [0.236, 0.382, 0.5, 0.618, 0.786]  # Standard Fibonacci levels
+ENABLE_FIBONACCI = True
+FIBONACCI_LEVELS = [0.236, 0.382, 0.5, 0.618, 0.786]
 # How far back to look for swing high/low points for Fibonacci calculation
-FIBONACCI_LOOKBACK_PERIODS = 60  # Number of candles to look back for finding swing points
+FIBONACCI_LOOKBACK_PERIODS = 60
 
 # Chart Analysis AI Settings
 CHART_MODEL_OVERRIDE = "deepseek-reasoner"
@@ -377,7 +401,6 @@ For optimal entry price calculation:
 - If previous entry recommendations were successful, consider similar levels
 
 Make your own independent assessment but factor in the performance of previous recommendations.
-
 """
 
 
@@ -396,8 +419,6 @@ minimum_trades_in_last_hour = 777
 AI_MODEL = "claude-3-haiku-20240307"
 AI_TEMPERATURE = 0.7
 AI_MAX_TOKENS = 1024
-DAYSBACK_4_DATA = 3
-DATA_TIMEFRAME = '15m'
 
 
-
+priority_fee = 100006

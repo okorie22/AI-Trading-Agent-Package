@@ -1,6 +1,6 @@
 """
-🌙 Moon Dev's Risk Management Agent
-Built with love by Moon Dev 🚀
+🌙 Anarcho Capital's Risk Management Agent
+Built with love by Anarcho Capital 🚀
 """
 
 # Import necessary modules
@@ -109,7 +109,7 @@ except ImportError:
 
 class RiskAgent(BaseAgent):
     def __init__(self):
-        """Initialize Moon Dev's Risk Agent 🛡️"""
+        """Initialize Anarcho Capital's Risk Agent 🛡️"""
         super().__init__('risk')  # Initialize base agent with type
         
         # Set AI parameters - use config values
@@ -395,7 +395,7 @@ class RiskAgent(BaseAgent):
                 response = self.deepseek_client.chat.completions.create(
                     model=RISK_MODEL_OVERRIDE.lower(),
                     messages=[
-                        {"role": "system", "content": "You are Moon Dev's Risk Management AI. Analyze positions and respond with OVERRIDE or RESPECT_LIMIT."},
+                        {"role": "system", "content": "You are Anarcho Capital's Risk Management AI. Analyze positions and respond with OVERRIDE or RESPECT_LIMIT."},
                         {"role": "user", "content": prompt}
                     ],
                     max_tokens=self.ai_max_tokens,
@@ -697,7 +697,7 @@ Then explain your reasoning.
                 response = self.deepseek_client.chat.completions.create(
                     model=RISK_MODEL_OVERRIDE.lower(),
                     messages=[
-                        {"role": "system", "content": "You are Moon Dev's Risk Management AI. Analyze the breach and decide whether to close positions."},
+                        {"role": "system", "content": "You are Anarcho Capital's Risk Management AI. Analyze the breach and decide whether to close positions."},
                         {"role": "user", "content": prompt}
                     ],
                     max_tokens=self.ai_max_tokens,
@@ -913,7 +913,7 @@ def main():
             break
         except Exception as e:
             error(f"Error: {str(e)}")
-            warning("Moon Dev suggests checking the logs and trying again!")
+            warning("Anarcho Capital suggests checking the logs and trying again!")
             time.sleep(300)  # Still sleep on error
 
 if __name__ == "__main__":

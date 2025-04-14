@@ -1,8 +1,8 @@
 '''
 nice functions from hyper liquid i can use
 
-Moon Dev's Hyperliquid Functions
-Built with love by Moon Dev
+Anarcho Capital's Hyperliquid Functions
+Built with love by Anarcho Capital
 '''
 
 import pandas as pd
@@ -399,7 +399,7 @@ def calculate_liquidation_price(symbol, position_size, entry_price, leverage, is
         return None
 
 if __name__ == "__main__":
-    info("Moon Dev's Hyperliquid Function Tester")
+    info("Anarcho Capital's Hyperliquid Function Tester")
     debug("=" * 50, file_only=True)
     
     def test_btc_data():
