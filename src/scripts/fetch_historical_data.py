@@ -19,9 +19,6 @@ BIRDEYE_URL = "https://public-api.birdeye.so/public/price?address={}"
 # Function to get tracked wallet tokens (used in dynamic mode)
 def get_tracked_wallet_tokens():
     try:
-        # Import here to avoid circular imports
-        from src import nice_funcs as n
-        
         tracked_tokens = set()
         # Get tracked wallets from config
         tracked_wallets = []
@@ -41,7 +38,8 @@ def get_tracked_wallet_tokens():
         # Get tokens from each wallet
         for wallet in tracked_wallets:
             try:
-                wallet_tokens = n.get_wallet_tokens(wallet)
+                # Use our direct implementation instead of importing nice_funcs
+                wallet_tokens = fetch_wallet_tokens_directly(wallet)
                 if wallet_tokens:
                     tracked_tokens.update(wallet_tokens)
                     debug(f"Found {len(wallet_tokens)} tokens in wallet {wallet}", file_only=True)
@@ -51,6 +49,60 @@ def get_tracked_wallet_tokens():
         return list(tracked_tokens)
     except Exception as e:
         error(f"Error getting tracked wallet tokens: {str(e)}")
+        return []
+
+# Direct implementation of getting wallet tokens to avoid circular imports
+def fetch_wallet_tokens_directly(wallet_address):
+    """
+    Get a list of token mint addresses in a wallet
+    
+    Args:
+        wallet_address (str): Wallet address to check
+        
+    Returns:
+        list: List of token mint addresses in the wallet
+    """
+    try:
+        import os
+        import requests
+        
+        # Get token accounts
+        rpc_endpoint = os.getenv("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "moon-dev",
+            "method": "getTokenAccountsByOwner",
+            "params": [
+                wallet_address,
+                {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
+                {"encoding": "jsonParsed"}
+            ]
+        }
+        
+        try:
+            response = requests.post(rpc_endpoint, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            
+            if "result" not in data or not data["result"]["value"]:
+                warning(f"No token accounts found for {wallet_address[:8]}")
+                return []
+            
+            token_addresses = []
+            for account in data["result"]["value"]:
+                account_info = account["account"]["data"]["parsed"]["info"]
+                if int(account_info["tokenAmount"]["amount"]) > 0:
+                    token_addresses.append(account_info["mint"])
+            
+            debug(f"Found {len(token_addresses)} tokens with non-zero balance in wallet {wallet_address[:8]}")
+            return token_addresses
+            
+        except Exception as e:
+            warning(f"Error getting token accounts: {str(e)}")
+            return []
+            
+    except Exception as e:
+        error(f"Error in get_wallet_tokens: {str(e)}")
         return []
 
 # Determine which tokens to use based on dynamic mode

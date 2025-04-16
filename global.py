@@ -43,12 +43,24 @@ from src.config import (TRADING_MODE, USE_HYPERLIQUID, DEFAULT_LEVERAGE,
                        ACTIVITY_WINDOW_HOURS, PAPER_TRADING_ENABLED, PAPER_INITIAL_BALANCE,
                        PAPER_TRADING_SLIPPAGE, PAPER_TRADING_RESET_ON_START, DYNAMIC_MODE)
 
+
+# Import Solana libraries for wallet token functions
+try:
+    from solana.rpc.api import Client
+    from solana.publickey import PublicKey
+except ImportError:
+    print("WARNING: Solana libraries not installed. Some functionality may be limited.")
+
+# Attempt to import our custom token functions
+try:
+    from src.nice_funcs import get_wallet_tokens, get_token_balance_usd
+except ImportError:
+    print("WARNING: Failed to import token functions from src.nice_funcs")
+
 # Suppress Qt warnings
-import logging
 logging.getLogger("PySide6").setLevel(logging.ERROR)
 
 # Filter out specific Qt warnings
-import os
 os.environ['QT_LOGGING_RULES'] = "*.debug=false;qt.qpa.*=false"
 
 # Define maximum widget size constant (equivalent to QWIDGETSIZE_MAX in Qt)

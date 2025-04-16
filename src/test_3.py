@@ -4,9 +4,6 @@ class DCAStakingTab(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        # Configure this widget to allow expansion
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
         # Import settings before setup_ui
         try:
             # Load DCA & Staking settings from config
@@ -239,9 +236,28 @@ Current staking protocols: marinade, lido, jito
                 self.staking_protocols.setText(",".join(self.staking_protocols_value))
                 
             # Set yield optimization settings
-            self.yield_optimization_value.setValue(self.yield_optimization_interval_value_value)
-            self.yield_optimization_unit.setCurrentText(self.yield_optimization_interval_unit_value)
-            self.yield_optimization_run_at_enabled.setChecked(self.yield_optimization_run_at_enabled_value)
+            # Instead of converting QSpinBox to int, we're using the stored value directly
+            if hasattr(self, 'yield_optimization_interval_value_value'):
+                if isinstance(self.yield_optimization_interval_value_value, (int, float, str)):
+                    try:
+                        # Make sure we have a numeric value
+                        value = int(self.yield_optimization_interval_value_value)
+                        self.yield_optimization_value.setValue(value)
+                    except (ValueError, TypeError):
+                        # Default to 1 if conversion fails
+                        self.yield_optimization_value.setValue(1)
+                else:
+                    # Default to 1 if not a valid type
+                    self.yield_optimization_value.setValue(1)
+            else:
+                # Default to 1 if attribute doesn't exist
+                self.yield_optimization_value.setValue(1)
+                
+            if hasattr(self, 'yield_optimization_interval_unit_value'):
+                self.yield_optimization_unit.setCurrentText(self.yield_optimization_interval_unit_value)
+                
+            if hasattr(self, 'yield_optimization_run_at_enabled_value'):
+                self.yield_optimization_run_at_enabled.setChecked(self.yield_optimization_run_at_enabled_value)
             
             # Parse and set yield optimization run at time
             if self.yield_optimization_run_at_time_value and isinstance(self.yield_optimization_run_at_time_value, str) and ":" in self.yield_optimization_run_at_time_value:
@@ -295,10 +311,11 @@ Current staking protocols: marinade, lido, jito
             print(f"Error loading config settings: {e}")
     
     def setup_ui(self):
-        # Remove fixed height constraints for the entire tab
         layout = QVBoxLayout(self)
-        layout.setSpacing(5)  # Reduce spacing between elements
-        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Set the main widget to expand with the window
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         self.setStyleSheet(f"""
             QWidget {{
@@ -317,6 +334,10 @@ Current staking protocols: marinade, lido, jito
                 border: 1px solid {CyberpunkColors.PRIMARY};
                 border-radius: 2px;
                 padding: 2px;
+                min-width: 635px;
+            }}
+            QSpinBox, QComboBox, QDoubleSpinBox, QTimeEdit {{
+                min-width: 635px;
             }}
             QGroupBox {{
                 border: 1px solid {CyberpunkColors.PRIMARY};
@@ -334,21 +355,18 @@ Current staking protocols: marinade, lido, jito
             }}
         """)
         
-        # Create scroll area for all settings
-        scroll_widget = QWidget()
-        scroll_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll_layout = QVBoxLayout(scroll_widget)
-        scroll_layout.setSpacing(5)  # Reduce spacing between elements
+        # Create scroll area first - IMPORTANT: MUST be defined before it's used
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
         
-        # For the scroll_widget - set to allow dynamic sizing
-        scroll_layout.setAlignment(Qt.AlignTop)  # Align to top to prevent stretching
+        # Create scroll widget and layout
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
         
         # 1. AI Prompt Section (from Chart Analysis Agent)
         ai_group = QGroupBox("Chart Analysis AI Prompt")
         ai_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         ai_layout = QVBoxLayout(ai_group)
-        ai_layout.setSpacing(2)  # Reduce spacing
-        ai_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
         
         # AI Prompt
         self.prompt_text = QTextEdit()
@@ -388,14 +406,6 @@ Make your own independent assessment.
             self.prompt_text.setPlainText(default_prompt)
             
         self.prompt_text.setMinimumHeight(200)
-        
-        # Add scrollbar for usability
-        self.prompt_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        # Disable automatic height adjustment
-        self.prompt_text.document().setDocumentMargin(0)
-        self.prompt_text.setAcceptRichText(False)
-        
         ai_layout.addWidget(self.prompt_text)
         
         scroll_layout.addWidget(ai_group)
@@ -404,8 +414,6 @@ Make your own independent assessment.
         staking_ai_group = QGroupBox("Staking AI Prompt")
         staking_ai_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         staking_ai_layout = QVBoxLayout(staking_ai_group)
-        staking_ai_layout.setSpacing(2)  # Reduce spacing
-        staking_ai_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
         
         # Staking AI Prompt
         self.staking_prompt_text = QTextEdit()
@@ -444,52 +452,35 @@ Current staking protocols: marinade, lido, jito
             self.staking_prompt_text.setPlainText(default_staking_prompt)
             
         self.staking_prompt_text.setMinimumHeight(200)
-        
-        # Add scrollbar for usability
-        self.staking_prompt_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        # Disable automatic height adjustment
-        self.staking_prompt_text.document().setDocumentMargin(0)
-        self.staking_prompt_text.setAcceptRichText(False)
-        
         staking_ai_layout.addWidget(self.staking_prompt_text)
         
         scroll_layout.addWidget(staking_ai_group)
-        
-        # Define standard width for all controls - restore the values but keep dynamic sizing
-        control_width = 635
-        field_width = 635
         
         # 2. Chart Analysis Settings
         chart_group = QGroupBox("Chart Analysis Settings")
         chart_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         chart_layout = QGridLayout(chart_group)
-        chart_layout.setSpacing(5)  # Reduce spacing
-        chart_layout.setContentsMargins(5, 10, 5, 5)  # Reduce margins
-        
-        # Make column 0 (labels) minimum width
-        chart_layout.setColumnMinimumWidth(0, 150)
-        # Set minimum width for column 1 but still allow expansion
-        chart_layout.setColumnMinimumWidth(1, field_width)
         
         # Chart Interval
         chart_layout.addWidget(QLabel("Chart Interval:"), 0, 0)
         chart_interval_widget = QWidget()
-        chart_interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         chart_interval_layout = QHBoxLayout(chart_interval_widget)
         chart_interval_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        chart_interval_widget.setMinimumWidth(635)
+        chart_interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.chart_interval_value = QSpinBox()
-        self.chart_interval_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.chart_interval_value.setRange(1, 30)
         self.chart_interval_value.setValue(2)
         self.chart_interval_value.setToolTip("Number of time units between chart analysis cycles")
+        self.chart_interval_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.chart_interval_unit = QComboBox()
-        self.chart_interval_unit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.chart_interval_unit.addItems(["Hour(s)", "Day(s)", "Week(s)", "Month(s)"])
         self.chart_interval_unit.setCurrentText("Hour(s)")
         self.chart_interval_unit.setToolTip("Time unit for chart analysis interval")
+        self.chart_interval_unit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         chart_interval_layout.addWidget(self.chart_interval_value)
         chart_interval_layout.addWidget(self.chart_interval_unit)
@@ -498,17 +489,17 @@ Current staking protocols: marinade, lido, jito
         # Add scheduled time setting for Chart Analysis
         chart_layout.addWidget(QLabel("Run At Time:"), 1, 0)
         chart_time_widget = QWidget()
-        chart_time_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         chart_time_layout = QHBoxLayout(chart_time_widget)
         chart_time_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        chart_time_widget.setMinimumWidth(635)
+        chart_time_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.chart_run_at_enabled = QCheckBox("Enabled")
-        self.chart_run_at_enabled.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.chart_run_at_enabled.setChecked(getattr(sys.modules['src.config'], 'CHART_RUN_AT_ENABLED', False))
         self.chart_run_at_enabled.setToolTip("When enabled, chart analysis will run at the specified time")
 
         self.chart_run_at_time = QTimeEdit()
-        self.chart_run_at_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.chart_run_at_time.setDisplayFormat("HH:mm")
         self.chart_run_at_time.setTime(QTime(9, 0))
         self.chart_run_at_time.setToolTip("Time of day to run chart analysis")
@@ -526,47 +517,50 @@ Current staking protocols: marinade, lido, jito
         # Timeframes
         chart_layout.addWidget(QLabel("Timeframe:"), 2, 0)
         self.timeframes = QComboBox()
-        self.timeframes.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.timeframes.addItems(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'])
         self.timeframes.setCurrentText('4h')
         self.timeframes.setToolTip("Select the timeframe for chart analysis")
+        self.timeframes.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         chart_layout.addWidget(self.timeframes, 2, 1)
         
         # Lookback Bars
         chart_layout.addWidget(QLabel("Lookback Bars:"), 3, 0)
         self.lookback_bars = QSpinBox()
-        self.lookback_bars.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.lookback_bars.setRange(50, 500)
         self.lookback_bars.setValue(100)
         self.lookback_bars.setToolTip("Number of candles to analyze")
+        self.lookback_bars.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         chart_layout.addWidget(self.lookback_bars, 3, 1)
         
         # Indicators
         chart_layout.addWidget(QLabel("Indicators:"), 4, 0)
         self.indicators = QLineEdit("20EMA,50EMA,100EMA,200SMA,MACD,RSI,ATR")
-        self.indicators.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.indicators.setPlaceholderText("available indicators 20EMA,50EMA,100EMA,200SMA,MACD,RSI,ATR")
         self.indicators.setToolTip("Comma-separated list of indicators to display")
+        self.indicators.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         chart_layout.addWidget(self.indicators, 4, 1)
-        
         
         # Chart Style
         chart_layout.addWidget(QLabel("Chart Style:"), 5, 0)
         self.chart_style = QComboBox()
-        self.chart_style.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.chart_style.addItems(['yahoo', 'tradingview', 'plotly', 'matplotlib'])
-        self.chart_style.setCurrentText('yahoo')  # Default from config.py
+        self.chart_style.setCurrentText('yahoo')
         self.chart_style.setToolTip("Select the visual style for chart rendering")
+        self.chart_style.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         chart_layout.addWidget(self.chart_style, 5, 1)
         
         # Show Volume
         volume_widget = QWidget()
         volume_layout = QHBoxLayout(volume_widget)
         volume_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        volume_widget.setMinimumWidth(635)
+        volume_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         self.show_volume = QCheckBox("Show Volume Panel")
-        self.show_volume.setChecked(True)  # Default from config.py
+        self.show_volume.setChecked(True)
         self.show_volume.setToolTip("Display volume information in chart")
+        self.show_volume.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         volume_layout.addWidget(self.show_volume)
         volume_layout.addStretch()
@@ -574,17 +568,19 @@ Current staking protocols: marinade, lido, jito
         chart_layout.addWidget(QLabel("Volume Display:"), 6, 0)
         chart_layout.addWidget(volume_widget, 6, 1)
         
-        
         # Add Fibonacci retracement settings
         # Enable Fibonacci toggle
         fibonacci_enable_widget = QWidget()
         fibonacci_enable_layout = QHBoxLayout(fibonacci_enable_widget)
         fibonacci_enable_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        fibonacci_enable_widget.setMinimumWidth(635)
+        fibonacci_enable_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         self.enable_fibonacci = QCheckBox("Enable Fibonacci")
-        self.enable_fibonacci.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.enable_fibonacci.setChecked(True)  # Default from config.py
+        self.enable_fibonacci.setChecked(True)
         self.enable_fibonacci.setToolTip("Use Fibonacci retracement for entry price calculations")
+        self.enable_fibonacci.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         fibonacci_enable_layout.addWidget(self.enable_fibonacci)
         fibonacci_enable_layout.addStretch()
@@ -594,30 +590,19 @@ Current staking protocols: marinade, lido, jito
         
         # Fibonacci Levels
         chart_layout.addWidget(QLabel("Fibonacci Levels:"), 8, 0)
-        self.fibonacci_levels = QLineEdit("0.236, 0.382, 0.5, 0.618, 0.786")  # Default from config.py
-        self.fibonacci_levels.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.fibonacci_levels = QLineEdit("0.236, 0.382, 0.5, 0.618, 0.786")
         self.fibonacci_levels.setToolTip("Comma-separated list of Fibonacci retracement levels")
+        self.fibonacci_levels.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         chart_layout.addWidget(self.fibonacci_levels, 8, 1)
         
         # Fibonacci Lookback Periods
         chart_layout.addWidget(QLabel("Fibonacci Lookback Periods:"), 9, 0)
         self.fibonacci_lookback = QSpinBox()
         self.fibonacci_lookback.setRange(10, 200)
-        self.fibonacci_lookback.setValue(60)  # Default from config.py
+        self.fibonacci_lookback.setValue(60)
         self.fibonacci_lookback.setToolTip("Number of candles to look back for finding swing points")
+        self.fibonacci_lookback.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         chart_layout.addWidget(self.fibonacci_lookback, 9, 1)
-        
-        # Apply sizing policies to all widgets in chart section to allow horizontal resizing
-        for row in range(chart_layout.rowCount()):
-            item = chart_layout.itemAtPosition(row, 1)
-            if item and item.widget():
-                # Set minimum width but still allow expansion
-                item.widget().setMinimumWidth(control_width)
-                if isinstance(item.widget(), QWidget):
-                    sp = item.widget().sizePolicy()
-                    # Allow horizontal expansion
-                    if sp.horizontalPolicy() == QSizePolicy.Fixed:
-                        item.widget().setSizePolicy(QSizePolicy.Expanding, sp.verticalPolicy())
         
         scroll_layout.addWidget(chart_group)
         
@@ -626,29 +611,26 @@ Current staking protocols: marinade, lido, jito
         dca_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         dca_layout = QGridLayout(dca_group)
         
-        # Make column 0 (labels) minimum width
-        dca_layout.setColumnMinimumWidth(0, 150)
-        # Set minimum width for column 1 but still allow expansion
-        dca_layout.setColumnMinimumWidth(1, field_width)
-        
-        # DCA Interval - Replace with time-based options
+        # DCA Interval
         dca_layout.addWidget(QLabel("DCA Interval:"), 0, 0)
         interval_widget = QWidget()
-        interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         interval_layout = QHBoxLayout(interval_widget)
         interval_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        interval_widget.setMinimumWidth(635)
+        interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.dca_interval_value = QSpinBox()
-        self.dca_interval_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.dca_interval_value.setRange(1, 30)  # Allow 1-30 units
-        self.dca_interval_value.setValue(12)  # Default 12 hours
+        self.dca_interval_value.setRange(1, 30)
+        self.dca_interval_value.setValue(12)
         self.dca_interval_value.setToolTip("Number of time units between DCA operations")
+        self.dca_interval_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.dca_interval_unit = QComboBox()
-        self.dca_interval_unit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.dca_interval_unit.addItems(["Hour(s)", "Day(s)", "Week(s)", "Month(s)"])
-        self.dca_interval_unit.setCurrentText("Hour(s)")  # Default hours
+        self.dca_interval_unit.setCurrentText("Hour(s)")
         self.dca_interval_unit.setToolTip("Time unit for DCA interval")
+        self.dca_interval_unit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         interval_layout.addWidget(self.dca_interval_value)
         interval_layout.addWidget(self.dca_interval_unit)
@@ -657,19 +639,19 @@ Current staking protocols: marinade, lido, jito
         # Add scheduled time setting for DCA
         dca_layout.addWidget(QLabel("Run At Time:"), 1, 0)
         time_widget = QWidget()
-        time_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         time_layout = QHBoxLayout(time_widget)
         time_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        time_widget.setMinimumWidth(635)
+        time_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.dca_run_at_enabled = QCheckBox("Enabled")
-        self.dca_run_at_enabled.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.dca_run_at_enabled.setChecked(getattr(sys.modules['src.config'], 'DCA_RUN_AT_ENABLED', False))
         self.dca_run_at_enabled.setToolTip("When enabled, DCA will run at the specified time")
 
         self.dca_run_at_time = QTimeEdit()
-        self.dca_run_at_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.dca_run_at_time.setDisplayFormat("HH:mm")
-        self.dca_run_at_time.setTime(QTime(9, 0))  # Default 9:00 AM
+        self.dca_run_at_time.setTime(QTime(9, 0))
         self.dca_run_at_time.setToolTip("Time of day to run DCA operations")
         self.dca_run_at_time.setStyleSheet(f"""
             color: {CyberpunkColors.TEXT_LIGHT};
@@ -685,54 +667,55 @@ Current staking protocols: marinade, lido, jito
         # Staking Allocation
         dca_layout.addWidget(QLabel("Staking Allocation (%):"), 2, 0)
         self.staking_allocation = QSpinBox()
-        self.staking_allocation.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.staking_allocation.setRange(0, 100)
-        self.staking_allocation.setValue(30)  # Default from config.py
+        self.staking_allocation.setValue(30)
+        self.staking_allocation.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         dca_layout.addWidget(self.staking_allocation, 2, 1)
         
         # Take Profit Percentage
         dca_layout.addWidget(QLabel("Take Profit (%):"), 3, 0)
         self.take_profit = QSpinBox()
-        self.take_profit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.take_profit.setRange(10, 1000)
-        self.take_profit.setValue(200)  # Default from config.py
+        self.take_profit.setValue(200)
+        self.take_profit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         dca_layout.addWidget(self.take_profit, 3, 1)
         
         # Fixed DCA Amount
         dca_layout.addWidget(QLabel("Fixed DCA Amount (USD):"), 4, 0)
         self.fixed_dca_amount = QSpinBox()
-        self.fixed_dca_amount.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.fixed_dca_amount.setRange(0, 1000)
-        self.fixed_dca_amount.setValue(10)  # Default from config.py
+        self.fixed_dca_amount.setValue(10)
         self.fixed_dca_amount.setToolTip("0 for dynamic DCA, or set a fixed amount")
+        self.fixed_dca_amount.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         dca_layout.addWidget(self.fixed_dca_amount, 4, 1)
         
         # Dynamic Allocation Toggle
         dca_layout.addWidget(QLabel("Use Dynamic Allocation:"), 5, 0)
+        
+        # Create a container widget similar to other checkbox containers
+        dynamic_alloc_widget = QWidget()
+        dynamic_alloc_layout = QHBoxLayout(dynamic_alloc_widget)
+        dynamic_alloc_layout.setContentsMargins(0, 0, 0, 0)
+        dynamic_alloc_widget.setMinimumWidth(635)
+        dynamic_alloc_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
         self.use_dynamic_allocation = QCheckBox()
+        self.use_dynamic_allocation.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         # Try to load dynamic allocation setting from config
         try:
             from src.config import USE_DYNAMIC_ALLOCATION
             self.use_dynamic_allocation.setChecked(USE_DYNAMIC_ALLOCATION)
         except ImportError:
-            self.use_dynamic_allocation.setChecked(False)  # Default to off
+            self.use_dynamic_allocation.setChecked(False)
             
         self.use_dynamic_allocation.setToolTip("When enabled, uses dynamic allocation based on MAX_POSITION_PERCENTAGE instead of fixed amount")
         self.use_dynamic_allocation.stateChanged.connect(self.toggle_fixed_dca_amount)
-        dca_layout.addWidget(self.use_dynamic_allocation, 5, 1)
         
-        # Apply sizing policies to all widgets in DCA section
-        for row in range(dca_layout.rowCount()):
-            item = dca_layout.itemAtPosition(row, 1)
-            if item and item.widget():
-                # Set minimum width but still allow expansion
-                item.widget().setMinimumWidth(control_width)
-                if isinstance(item.widget(), QWidget):
-                    sp = item.widget().sizePolicy()
-                    # Allow horizontal expansion
-                    if sp.horizontalPolicy() == QSizePolicy.Fixed:
-                        item.widget().setSizePolicy(QSizePolicy.Expanding, sp.verticalPolicy())
+        dynamic_alloc_layout.addWidget(self.use_dynamic_allocation)
+        dynamic_alloc_layout.addStretch()
+        
+        dca_layout.addWidget(dynamic_alloc_widget, 5, 1)
         
         scroll_layout.addWidget(dca_group)
         
@@ -741,68 +724,65 @@ Current staking protocols: marinade, lido, jito
         staking_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         staking_layout = QGridLayout(staking_group)
         
-        # Make column 0 (labels) minimum width
-        staking_layout.setColumnMinimumWidth(0, 150)
-        # Set minimum width for column 1 but still allow expansion
-        staking_layout.setColumnMinimumWidth(1, field_width)
-        
         # Staking Mode
         staking_layout.addWidget(QLabel("Staking Mode:"), 0, 0)
         self.staking_mode = QComboBox()
-        self.staking_mode.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.staking_mode.addItems(["separate", "auto_convert"])
-        self.staking_mode.setCurrentText("separate")  # Default from config.py
+        self.staking_mode.setCurrentText("separate")
+        self.staking_mode.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         staking_layout.addWidget(self.staking_mode, 0, 1)
         
         # Auto-Convert Threshold
         staking_layout.addWidget(QLabel("Auto-Convert Threshold (USD):"), 1, 0)
         self.auto_convert_threshold = QSpinBox()
-        self.auto_convert_threshold.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.auto_convert_threshold.setRange(1, 100)
-        self.auto_convert_threshold.setValue(10)  # Default from config.py
+        self.auto_convert_threshold.setValue(10)
+        self.auto_convert_threshold.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         staking_layout.addWidget(self.auto_convert_threshold, 1, 1)
         
         # Min Conversion Amount
         staking_layout.addWidget(QLabel("Min Conversion Amount (USD):"), 2, 0)
         self.min_conversion_amount = QSpinBox()
-        self.min_conversion_amount.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.min_conversion_amount.setRange(1, 50)
-        self.min_conversion_amount.setValue(5)  # Default from config.py
+        self.min_conversion_amount.setValue(5)
+        self.min_conversion_amount.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         staking_layout.addWidget(self.min_conversion_amount, 2, 1)
         
         # Max Convert Percentage
         staking_layout.addWidget(QLabel("Max Convert Percentage (%):"), 3, 0)
         self.max_convert_percentage = QSpinBox()
-        self.max_convert_percentage.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.max_convert_percentage.setRange(1, 100)
-        self.max_convert_percentage.setValue(25)  # Default from config.py
+        self.max_convert_percentage.setValue(25)
+        self.max_convert_percentage.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         staking_layout.addWidget(self.max_convert_percentage, 3, 1)
         
         # Staking Protocols
         staking_layout.addWidget(QLabel("Staking Protocols:"), 4, 0)
-        self.staking_protocols = QLineEdit("marinade,jito")  # Default from config.py
-        self.staking_protocols.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.staking_protocols = QLineEdit("marinade,jito")
         self.staking_protocols.setToolTip("Comma-separated list of supported staking protocols")
+        self.staking_protocols.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         staking_layout.addWidget(self.staking_protocols, 4, 1)
         
         # Yield Optimization Interval
         staking_layout.addWidget(QLabel("Yield Optimization Interval:"), 5, 0)
         yield_interval_widget = QWidget()
-        yield_interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         yield_interval_layout = QHBoxLayout(yield_interval_widget)
         yield_interval_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        yield_interval_widget.setMinimumWidth(635)
+        yield_interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.yield_optimization_value = QSpinBox()
-        self.yield_optimization_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.yield_optimization_value.setRange(1, 30)  # Allow 1-30 units
-        self.yield_optimization_value.setValue(1)  # Default 1 hour
+        self.yield_optimization_value.setRange(1, 30)
+        self.yield_optimization_value.setValue(1)
         self.yield_optimization_value.setToolTip("How often to run yield optimization")
+        self.yield_optimization_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         self.yield_optimization_unit = QComboBox()
-        self.yield_optimization_unit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.yield_optimization_unit.addItems(["Hour(s)", "Day(s)", "Week(s)", "Month(s)"])
-        self.yield_optimization_unit.setCurrentText("Hour(s)")  # Default hours
+        self.yield_optimization_unit.setCurrentText("Hour(s)")
         self.yield_optimization_unit.setToolTip("Time unit for yield optimization interval")
+        self.yield_optimization_unit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         yield_interval_layout.addWidget(self.yield_optimization_value)
         yield_interval_layout.addWidget(self.yield_optimization_unit)
@@ -811,19 +791,19 @@ Current staking protocols: marinade, lido, jito
         # Add scheduled time setting for Yield Optimization
         staking_layout.addWidget(QLabel("Yield Optimization Run At Time:"), 6, 0)
         yield_time_widget = QWidget()
-        yield_time_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         yield_time_layout = QHBoxLayout(yield_time_widget)
         yield_time_layout.setContentsMargins(0, 0, 0, 0)
+        # Set minimum width on container widget
+        yield_time_widget.setMinimumWidth(635)
+        yield_time_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.yield_optimization_run_at_enabled = QCheckBox("Enabled")
-        self.yield_optimization_run_at_enabled.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.yield_optimization_run_at_enabled.setChecked(self.yield_optimization_run_at_enabled_value)
         self.yield_optimization_run_at_enabled.setToolTip("When enabled, yield optimization will run at the specified time")
 
         self.yield_optimization_run_at_time = QTimeEdit()
-        self.yield_optimization_run_at_time.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.yield_optimization_run_at_time.setDisplayFormat("HH:mm")
-        self.yield_optimization_run_at_time.setTime(QTime(9, 0))  # Default 9:00 AM
+        self.yield_optimization_run_at_time.setTime(QTime(9, 0))
         self.yield_optimization_run_at_time.setToolTip("Time of day to run yield optimization")
         self.yield_optimization_run_at_time.setStyleSheet(f"""
             color: {CyberpunkColors.TEXT_LIGHT};
@@ -836,91 +816,47 @@ Current staking protocols: marinade, lido, jito
         yield_time_layout.addWidget(self.yield_optimization_run_at_time)
         staking_layout.addWidget(yield_time_widget, 6, 1)
         
-        # Set yield optimization values from config
-        self.yield_optimization_value.setValue(self.yield_optimization_interval_value_value)
-        self.yield_optimization_unit.setCurrentText(self.yield_optimization_interval_unit_value)
-        self.yield_optimization_run_at_enabled.setChecked(self.yield_optimization_run_at_enabled_value)
-
-        # Set default time if not set
-        if hasattr(self, 'yield_optimization_run_at_time_value') and self.yield_optimization_run_at_time_value:
-            try:
-                if isinstance(self.yield_optimization_run_at_time_value, str) and ":" in self.yield_optimization_run_at_time_value:
-                    hour_str, minute_str = self.yield_optimization_run_at_time_value.split(":")
-                    hour = int(hour_str)
-                    minute = int(minute_str)
-                    self.yield_optimization_run_at_time.setTime(QTime(hour, minute))
-            except Exception as e:
-                print(f"Warning: Could not parse yield optimization time: {e}")
-                self.yield_optimization_run_at_time.setTime(QTime(9, 0))
-        else:
-            # Use default time
-            self.yield_optimization_run_at_time.setTime(QTime(9, 0))
-        
-        # Apply sizing policies to all widgets in staking section
-        for row in range(staking_layout.rowCount()):
-            item = staking_layout.itemAtPosition(row, 1)
-            if item and item.widget():
-                # Set minimum width but still allow expansion
-                item.widget().setMinimumWidth(control_width)
-                if isinstance(item.widget(), QWidget):
-                    sp = item.widget().sizePolicy()
-                    # Allow horizontal expansion
-                    if sp.horizontalPolicy() == QSizePolicy.Fixed:
-                        item.widget().setSizePolicy(QSizePolicy.Expanding, sp.verticalPolicy())
-        
         scroll_layout.addWidget(staking_group)
         
-        # 5. Token Mapping
-        token_group = QGroupBox("DCA Monitor Tokens")
+        # 5. Token Map
+        token_group = QGroupBox("Token Map")
         token_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         token_layout = QVBoxLayout(token_group)
         
-        token_layout.addWidget(QLabel("Token Map (Solana address : symbol,hyperliquid_symbol):"))
+        # Token Map description
+        token_map_label = QLabel("Map token addresses to symbols for display (format: address: symbol,headline_symbol)")
+        token_layout.addWidget(token_map_label)
+        
+        # Token Map text area
         self.token_map = QTextEdit()
         self.token_map.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.token_map.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        # Default from config.py TOKEN_MAP
+        self.token_map.setPlaceholderText("Enter token mapping, one per line\nFormat: <token_address>: <symbol>,<headline_symbol>")
+        
+        # Try to load TOKEN_MAP from config
         try:
-            # Try to get TOKEN_MAP from config.py
             from src.config import TOKEN_MAP
-            
-            # Format TOKEN_MAP into the text format expected by the UI
             token_map_lines = []
             for token_address, (symbol, hl_symbol) in TOKEN_MAP.items():
                 token_map_lines.append(f"{token_address}: {symbol},{hl_symbol}")
-            default_tokens = "\n".join(token_map_lines)
+            self.token_map.setPlainText("\n".join(token_map_lines))
         except Exception as e:
-            print(f"Error getting TOKEN_MAP from config: {e}")
-            # Fallback to hardcoded default if TOKEN_MAP is not available
-            default_tokens = """9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump: FART,FARTCOIN
-HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC: AI16Z,AI16Z
-So11111111111111111111111111111111111111112: SOL,SOL"""
-        self.token_map.setPlainText(default_tokens)
+            print(f"Error loading TOKEN_MAP from config: {e}")
+            # Use empty value
+            self.token_map.setPlainText("")
+            
         self.token_map.setMinimumHeight(100)
-        
-        # Set width for token map widget
-        self.token_map.setMinimumWidth(field_width)
-        
         token_layout.addWidget(self.token_map)
+        
         scroll_layout.addWidget(token_group)
         
         # Add save button
-        save_button = NeonButton("Save DCA/Staking Configuration", CyberpunkColors.SUCCESS)
+        save_button = NeonButton("Save DCA & Staking Configuration", CyberpunkColors.TERTIARY)
         save_button.clicked.connect(self.save_config)
-        save_button.setMinimumWidth(field_width)
-        save_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         scroll_layout.addWidget(save_button)
         
         # Create scroll area to allow content to scroll both vertically and horizontally
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_widget)
-        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        # Add the scroll area to the main layout with stretch factor
-        layout.addWidget(scroll_area, 1)  # Give it a stretch factor for expansion
+        layout.addWidget(scroll_area)
         
         # Add spacer at the end of the scroll_layout to push content up
         spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -931,6 +867,36 @@ So11111111111111111111111111111111111111112: SOL,SOL"""
             item = scroll_layout.itemAt(i)
             if item and item.widget() and isinstance(item.widget(), QGroupBox):
                 item.widget().setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # Apply sizing policies to all layout widgets
+        for row in range(chart_layout.rowCount()):
+            item = chart_layout.itemAtPosition(row, 1)
+            if item and item.widget():
+                item.widget().setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # Apply sizing policies to DCA section
+        for row in range(dca_layout.rowCount()):
+            item = dca_layout.itemAtPosition(row, 1)
+            if item and item.widget():
+                item.widget().setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # Apply sizing policies to staking section
+        for row in range(staking_layout.rowCount()):
+            item = staking_layout.itemAtPosition(row, 1)
+            if item and item.widget():
+                item.widget().setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        
+        # Make the scroll area and scroll widget properly resizable
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        scroll_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Set the QVBoxLayout to stretch all items proportionally
+        scroll_layout.setStretchFactor(ai_group, 1)
+        scroll_layout.setStretchFactor(staking_ai_group, 1)
+        scroll_layout.setStretchFactor(chart_group, 1)
+        scroll_layout.setStretchFactor(dca_group, 1)
+        scroll_layout.setStretchFactor(staking_group, 1)
+        scroll_layout.setStretchFactor(token_group, 1)
         
     def toggle_fixed_dca_amount(self):
         """Enable or disable the fixed DCA amount field based on the dynamic allocation toggle"""
@@ -1403,22 +1369,6 @@ So11111111111111111111111111111111111111112: SOL,SOL"""
             self.amount_threshold.setStyleSheet("")
         else:
             self.amount_threshold.setStyleSheet(f"""
-                QSpinBox {{
-                    background-color: {CyberpunkColors.BACKGROUND};
-                    color: rgba(224, 224, 224, 100);
-                    border: 1px solid rgba(0, 255, 255, 100);
-                    border-radius: 2px;
-                    padding: 2px;
-                }}
-            """)
-    
-    def toggle_activity_filter(self, checked):
-        """Enable or disable the activity window input based on the activity filter checkbox"""
-        self.activity_window.setEnabled(checked)
-        if checked:
-            self.activity_window.setStyleSheet("")
-        else:
-            self.activity_window.setStyleSheet(f"""
                 QSpinBox {{
                     background-color: {CyberpunkColors.BACKGROUND};
                     color: rgba(224, 224, 224, 100);

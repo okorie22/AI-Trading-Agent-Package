@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 from functools import lru_cache
 import time
-from src.scripts.logger import debug, info, warning, error, critical
+from src.scripts.logger import debug, info, warning, error, critical, system, logger
 
 # Load .env file
 load_dotenv()
@@ -35,6 +35,7 @@ import pandas_ta as ta
 from datetime import datetime, timedelta
 from termcolor import colored, cprint
 import solders
+from solana.rpc.api import Client
 from dotenv import load_dotenv
 import shutil
 import atexit
@@ -42,9 +43,8 @@ from src.scripts.fetch_historical_data import fetch_coingecko_data
 import base58
 import csv
 
-
-# Load environment variables
-load_dotenv()
+# Create cache directory
+os.makedirs("src/data/cache", exist_ok=True)
 
 # Get API keys from environment
 BIRDEYE_API_KEY = os.getenv("BIRDEYE_API_KEY")
@@ -60,123 +60,502 @@ _price_cache = {}
 _price_cache_expiry = {}
 CACHE_EXPIRY_SECONDS = 60  # Cache prices for 60 seconds
 
-def token_price(token_address, force_refresh=False):
+def extract_price_from_quote(token_address):
     """
-    Get the current price of a token in USD
+    Extract token price by utilizing the Jupiter Quote API instead of the Price API
     
     Args:
-        token_address (str): The mint address of the token
-        force_refresh (bool): Whether to force refresh the price or use cached value
+        token_address (str): Token address to get price for
         
     Returns:
-        float: Current price in USD or None if not found/error
+        float: Token price in USD or None if not found
     """
     try:
-        # Use cache unless force_refresh is True
-        global _price_cache, _price_cache_expiry
+        # USDC mint address (for price comparison)
+        usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        sol_mint = "So11111111111111111111111111111111111111112"
+        
+        # We'll request a quote for 1 billion token units (standard amount for accurate price)
+        # For most SPL tokens this is 1 token (assuming 9 decimals)
+        input_amount = "1000000000"
+        
+        # First direction: token to USDC (selling 1 token)
+        url = f"https://quote-api.jup.ag/v6/quote?inputMint={token_address}&outputMint={usdc_mint}&amount={input_amount}&slippageBps=50"
+        info(f"[DEBUG] Jupiter quote URL: {url}")
+        
+        try:
+            response = requests.get(url, timeout=10)
+            info(f"[DEBUG] Jupiter response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                # Special handling for AyrQpt5x token for debugging
+                if token_address == 'AyrQpt5xsVYiN4BqgZdd2tZJAWswT9yLUZmP1jKqpump':
+                    raw_response = response.text
+                    info(f"[FULL RESPONSE FOR AyrQpt5x] {raw_response}")
+                
+                data = response.json()
+                
+                # Debug print the full structure
+                debug_json = json.dumps(data, indent=2)
+                info(f"[DEBUG] FULL RESPONSE: {debug_json}")
+                
+                # Check if we have the outAmount field
+                if "outAmount" in data:
+                    info(f"[DEBUG] Found outAmount: {data['outAmount']}")
+                    
+                    # Convert outAmount to float and adjust for USDC's 6 decimals
+                    out_amount = int(data["outAmount"])
+                    
+                    # Add debug logging for token details
+                    token_decimals = 9  # Default
+                    usdc_decimals = 6
+                    token_name = "Unknown"
+                    # Try to get actual decimals from TOKEN_MAP
+                    for addr, details in TOKEN_MAP.items():
+                        if addr == token_address and len(details) >= 3:
+                            token_decimals = details[2]
+                            token_name = details[0]
+                            break
+                    
+                    info(f"[DEBUG EXTRACT] Token: {token_name}, Address: {token_address[:8]}, Decimals: {token_decimals}")
+                    info(f"[DEBUG EXTRACT] Input Amount: 1000000000 (1 token with {token_decimals} decimals)")
+                    info(f"[DEBUG EXTRACT] Output Amount: {out_amount} (USDC with {usdc_decimals} decimals)")
+                    
+                    # Initial price calculation
+                    initial_price = out_amount / (10**6)
+                    info(f"[DEBUG EXTRACT] Initial price after USDC decimal adjustment: {initial_price}")
+                    
+                    # Apply the correct decimal factor adjustment using the helper function
+                    price = adjust_token_price(initial_price, token_decimals)
+                    
+                    info(f"[DEBUG] Successfully extracted price: ${price}")
+                    return float(price)
+                
+                # If we don't have outAmount, check other parts
+                info(f"[DEBUG] No outAmount field found, keys in response: {list(data.keys())}")
+                
+                # Check for error response
+                if "error" in data:
+                    error_msg = data["error"]
+                    warning(f"[DEBUG] Jupiter Quote API returned error: {error_msg}")
+                    return None
+                
+                # Handle Jupiter v4 API format where data is nested
+                if "data" in data and isinstance(data["data"], dict):
+                    nested_data = data["data"]
+                    info(f"[DEBUG] Found nested data structure, keys: {list(nested_data.keys())}")
+                    
+                    if token_address in nested_data:
+                        token_data = nested_data[token_address]
+                        info(f"[DEBUG] Found token in nested data: {token_data}")
+                        
+                        if "price" in token_data:
+                            price = float(token_data["price"])
+                            info(f"[DEBUG] Extracted price from nested data: ${price}")
+                            return price
+                
+                # Manual JSON parsing for safety
+                if isinstance(data, str):
+                    info(f"[DEBUG] Data is string, attempting manual JSON parse")
+                    try:
+                        manual_data = json.loads(data)
+                        if "outAmount" in manual_data:
+                            out_amount = int(manual_data["outAmount"])
+                            price = out_amount / (10**6)
+                            info(f"[DEBUG] Extracted price from manual parse: ${price}")
+                            return float(price)
+                    except:
+                        info(f"[DEBUG] Manual JSON parse failed")
+                
+                # Emergency fallback - try to directly read the response text
+                try:
+                    text_response = response.text
+                    info(f"[DEBUG] Raw response text (first 500 chars): {text_response[:500]}")
+                    
+                    # Try to find outAmount in the text
+                    import re
+                    out_amount_match = re.search(r'"outAmount"\s*:\s*"(\d+)"', text_response)
+                    if out_amount_match:
+                        out_amount = int(out_amount_match.group(1))
+                        price = out_amount / (10**6)
+                        info(f"[DEBUG] Extracted price from regex: ${price}")
+                        return float(price)
+                except Exception as err:
+                    info(f"[DEBUG] Text extraction failed: {str(err)}")
+                
+                # If we get here, we couldn't find a valid price in the response
+                warning(f"[DEBUG] Could not find a valid price in the response")
+                return None
+                
+            else:
+                warning(f"[DEBUG] Failed to get quote: HTTP {response.status_code}")
+                return None
+                
+        except Exception as e:
+            warning(f"[DEBUG] Error extracting price from Quote API: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        
+        # If we get here, the first approach failed, try reverse direction (USDC to token)
+        info(f"[DEBUG] Trying reverse quote lookup for token {token_address}")
+        try:
+            # Amount of USDC to use for quote (1 USDC)
+            usdc_amount = "1000000"  # 1 USDC (6 decimals)
+            
+            # Reverse direction: USDC to token (buying with 1 USDC)
+            url = f"https://quote-api.jup.ag/v6/quote?inputMint={usdc_mint}&outputMint={token_address}&amount={usdc_amount}&slippageBps=50"
+            info(f"[DEBUG] Reverse Jupiter quote URL: {url}")
+            
+            response = requests.get(url, timeout=10)
+            info(f"[DEBUG] Reverse response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                debug_json = json.dumps(data, indent=2)
+                info(f"[DEBUG] FULL REVERSE RESPONSE: {debug_json}")
+                
+                # Check for outAmount at the top level (standard format)
+                if "outAmount" in data:
+                    # Calculate token amount we get for 1 USDC
+                    token_amount = int(data["outAmount"])
+                    
+                    # Adjust for token decimals (usually 9 for SPL tokens)
+                    # Get decimals from TOKEN_MAP if available
+                    token_decimals = 9  # Default assumption
+                    for addr, details in TOKEN_MAP.items():
+                        if addr == token_address and len(details) >= 3:
+                            token_decimals = details[2]
+                            break
+                    
+                    info(f"[DEBUG] Token amount: {token_amount}, decimals: {token_decimals}")
+                    
+                    # Token per USDC
+                    tokens_per_usdc = token_amount / (10**token_decimals)
+                    
+                    # Price = 1/tokens_per_usdc (USDC per token)
+                    if tokens_per_usdc > 0:
+                        price = 1 / tokens_per_usdc
+                        info(f"[DEBUG] Successfully extracted reverse price: ${price}")
+                        return float(price)
+                    else:
+                        warning(f"[DEBUG] Invalid token amount: {token_amount}")
+                        return None
+                
+                # Check for error response
+                if "error" in data:
+                    warning(f"[DEBUG] Jupiter Reverse Quote API returned error: {data['error']}")
+                    return None
+                
+                # If we get here, we couldn't find a valid price in the response
+                warning(f"[DEBUG] Could not find a valid price in the reverse response")
+                return None
+                
+            else:
+                warning(f"[DEBUG] Failed to get reverse quote: HTTP {response.status_code}")
+                return None
+                
+        except Exception as e:
+            warning(f"[DEBUG] Error extracting reverse price from Quote API: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        
+        warning(f"[DEBUG] Could not get price for token {token_address[:8]}")
+        return None
+        
+    except Exception as e:
+        error(f"[DEBUG] Final error in extract_price_from_quote: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+# Now modify token_price function to use the quote-based pricing as a fallback
+def token_price(token_address, force_refresh=False):
+    """
+    Get the price of a token
+    
+    Args:
+        token_address: Token address to check
+        force_refresh: Force refresh the price cache
+        
+    Returns:
+        float: Token price or None if not found
+    """
+    try:
         current_time = time.time()
         
-        # Return cached price if available and not expired
+        # Check cache first
         if not force_refresh and token_address in _price_cache:
-            if current_time < _price_cache_expiry.get(token_address, 0):
+            if _price_cache_expiry.get(token_address, 0) > current_time:
                 return _price_cache[token_address]
         
-        # First try BirdEye API (most reliable for current prices)
+        # Try BirdEye first
         try:
-            birdeye_api_key = os.getenv("BIRDEYE_API_KEY", "")
-            if birdeye_api_key:
-                headers = {"X-API-KEY": birdeye_api_key}
-                url = f"https://public-api.birdeye.so/public/price?address={token_address}"
-                response = requests.get(url, headers=headers, timeout=10)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("success", False):
-                        price = data.get("data", {}).get("value", 0)
+            url = f"https://public-api.birdeye.so/public/price?address={token_address}"
+            headers = {"X-API-KEY": BIRDEYE_API_KEY}
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success", False):
+                    price = data.get("data", {}).get("value", 0)
+                    if price:
+                        _price_cache[token_address] = float(price)
+                        _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
+                        return float(price)
+        except Exception as e:
+            debug(f"BirdEye price lookup failed: {str(e)}", file_only=True)
+                    
+        # First fallback: Jupiter API
+        try:
+            debug(f"Falling back to Jupiter API for price of {token_address[:8]}", file_only=True)
+            jupiter_url = f"https://lite-api.jup.ag/price/v2?ids={token_address}"
+            response = requests.get(jupiter_url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                price = None
+                if 'data' in data and token_address in data['data']:
+                    price_data = data['data'][token_address]
+                    if price_data:
+                        price = price_data.get("price", 0)
                         if price:
                             # Cache the price
                             _price_cache[token_address] = float(price)
                             _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
                             return float(price)
-        except Exception as be_error:
-            warning(f"BirdEye price lookup failed: {str(be_error)}")
-                    
-        # Fallback to Jupiter API (good alternative source)
-        try:
-            info(f"Falling back to Jupiter API for price...")
-            jupiter_url = f"https://price.jup.ag/v4/price?ids={token_address}"
-            response = requests.get(jupiter_url, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                price_data = data.get("data", {}).get(token_address)
-                if price_data:
-                    price = price_data.get("price", 0)
-                    if price:
-                        # Cache the price
-                        _price_cache[token_address] = float(price)
-                        _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
-                        return float(price)
         except Exception as jupiter_e:
-            warning(f"Jupiter price lookup failed: {str(jupiter_e)}")
+            debug(f"Jupiter price lookup failed: {str(jupiter_e)}", file_only=True)
             
-        # Try another fallback for common tokens
+        # Second fallback: Raydium API
         try:
-            info(f"Trying additional price sources...")
-            # For SOL, we can use CoinGecko
-            if token_address == "So11111111111111111111111111111111111111112":
-                try:
-                    response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        sol_price = data.get("solana", {}).get("usd", 0)
-                        if sol_price:
-                            # Cache the price
-                            _price_cache[token_address] = float(sol_price)
-                            _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
-                            return float(sol_price)
-                except Exception as cg_e:
-                    warning(f"CoinGecko lookup failed: {str(cg_e)}")
-            
-            # For USDC, return 1.0 (it's a stablecoin)
-            if token_address == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v":
-                _price_cache[token_address] = 1.0
+            debug(f"Falling back to Raydium API for price of {token_address[:8]}", file_only=True)
+            raydium_price = get_real_time_price_raydium(token_address)
+            if raydium_price is not None and raydium_price > 0:
+                debug(f"Successfully got price from Raydium API: ${raydium_price}", file_only=True)
+                # Cache the price
+                _price_cache[token_address] = float(raydium_price)
                 _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
-                return 1.0
-        except Exception as other_e:
-            warning(f"Alternative price source failed: {str(other_e)}")
+                return float(raydium_price)
+        except Exception as raydium_e:
+            debug(f"Raydium price lookup failed: {str(raydium_e)}", file_only=True)
+            
+        # Third fallback: Orca API
+        try:
+            debug(f"Falling back to Orca API for price of {token_address[:8]}", file_only=True)
+            orca_price = get_real_time_price_orca(token_address)
+            if orca_price is not None and orca_price > 0:
+                debug(f"Successfully got price from Orca API: ${orca_price}", file_only=True)
+                # Cache the price
+                _price_cache[token_address] = float(orca_price)
+                _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
+                return float(orca_price)
+        except Exception as orca_e:
+            debug(f"Orca price lookup failed: {str(orca_e)}", file_only=True)
+            
+        # Fourth fallback: Jupiter Quote API
+        try:
+            debug(f"Trying Jupiter Quote API as fallback for {token_address[:8]}", file_only=True)
+            quote_price = extract_price_from_quote(token_address)
+            if quote_price is not None:
+                debug(f"Successfully got price from Quote API: ${quote_price}", file_only=True)
+                # Cache the price
+                _price_cache[token_address] = float(quote_price)
+                _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
+                return float(quote_price)
+        except Exception as quote_e:
+            debug(f"Quote API price fallback failed: {str(quote_e)}", file_only=True)
         
-        # If we get here, return None to indicate failure
-        warning(f"Could not get price for token {token_address}")
-        return None
+        # Special handling for common tokens
+        # For SOL
+        if token_address == "So11111111111111111111111111111111111111112":
+            try:
+                response = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    sol_price = data.get("solana", {}).get("usd", 0)
+                    if sol_price:
+                        # Cache the price
+                        _price_cache[token_address] = float(sol_price)
+                        _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
+                        return float(sol_price)
+            except Exception as cg_e:
+                debug(f"CoinGecko lookup failed: {str(cg_e)}", file_only=True)
+        
+        # For USDC, return 1.0 (it's a stablecoin)
+        if token_address == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v":
+            _price_cache[token_address] = 1.0
+            _price_cache_expiry[token_address] = current_time + CACHE_EXPIRY_SECONDS
+            return 1.0
+            
+        # For tokens not found in any API, provide a very small default price
+        debug(f"No price found for {token_address[:8]} in any source", file_only=True)
+        return 0.00000001  # Extremely small price that will make calculations work but trades fail naturally
         
     except Exception as e:
-        error(f"Error getting token price: {str(e)}")
+        debug(f"Error getting token price: {str(e)}", file_only=True)
         return None
 
 def get_real_time_price_jupiter(token_address):
-    url = f"https://quote-api.jup.ag/v6/price?ids={token_address}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get('data', {}).get(token_address, {}).get('price', None)
-    return None
+    url = f"https://lite-api.jup.ag/price/v2?ids={token_address}"
+    info(f"Jupiter API v2 call URL: {url}")  # Debug log for URL
+    try:
+        response = requests.get(url, timeout=10)
+        info(f"Jupiter API v2 response status: {response.status_code}")  # Debug log for response status
+        
+        if response.status_code == 200:
+            data = response.json()
+            info(f"Jupiter parsed JSON: {data}")  # Debug log for parsed JSON
+            
+            # New API format - price is nested under data -> token_address -> price
+            if 'data' in data and token_address in data['data']:
+                token_data = data['data'][token_address]
+                # Check if token data is null
+                if token_data is None:
+                    info(f"Jupiter API v2 returned null data for {token_address}")
+                    return None
+                    
+                price = token_data.get('price')
+                info(f"Jupiter v2 returned price: {price}")  # Debug log for price
+                return float(price) if price else None
+            else:
+                info(f"Jupiter API v2 response doesn't contain data for {token_address}")
+        
+        return None
+    except Exception as e:
+        error(f"Exception in Jupiter API v2 call: {str(e)}")
+        return None
 
 def get_real_time_price_raydium(token_address):
-    url = f"https://api.raydium.io/v1/token/{token_address}/price"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get('price', None)
-    else:
-        error(f"Raydium API failed for {token_address}: HTTP {response.status_code}")
+    """
+    Get real-time price from Raydium API
+    
+    Args:
+        token_address (str): Token mint address
+        
+    Returns:
+        float: Token price in USD or None if not found
+    """
+    url = f"https://api.raydium.io/v2/main/price?mint={token_address}"
+    info(f"Raydium API call URL: {url}")  # Debug log for URL
+    
+    try:
+        response = requests.get(url, timeout=10)
+        info(f"Raydium API response status: {response.status_code}")  # Debug log for response status
+        
+        if response.status_code == 200:
+            data = response.json()
+            info(f"Raydium parsed JSON: {data}")  # Debug log for parsed JSON
+            
+            if 'data' in data and 'price' in data.get('data', {}):
+                price = data['data']['price']
+                info(f"Raydium returned price: {price}")  # Debug log for price
+                return float(price) if price else None
+            elif 'price' in data:
+                price = data['price']
+                info(f"Raydium returned price (alt format): {price}")  # Debug log for price
+                return float(price) if price else None
+            else:
+                info(f"Raydium API response doesn't contain price data for {token_address}")
+                return None
+        else:
+            error(f"Raydium API failed for {token_address}: HTTP {response.status_code}")
+            if response.status_code != 404:  # Only log content for non-404 errors
+                try:
+                    error_content = response.text[:200]  # Limit log size
+                    error(f"Raydium API error response: {error_content}")
+                except:
+                    pass
+            return None
+    except Exception as e:
+        error(f"Exception in Raydium API call: {str(e)}")
         return None
 
 def get_real_time_price_orca(token_address):
-    url = f"https://api.orca.so/v1/token/{token_address}/price"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json().get('price', None)
-    else:
-        error(f"Orca API failed for {token_address}: HTTP {response.status_code}")
+    """
+    Get real-time price from Orca Whirlpools API
+    
+    Args:
+        token_address (str): Token mint address
+        
+    Returns:
+        float: Token price in USD or None if not found
+    """
+    # Use the Whirlpools DEX data endpoint
+    url = f"https://api.mainnet.orca.so/v1/whirlpool/token/price?mint={token_address}"
+    info(f"Orca Whirlpools API call URL: {url}")  # Debug log for URL
+    
+    try:
+        response = requests.get(url, timeout=10)
+        info(f"Orca API response status: {response.status_code}")  # Debug log for response status
+        
+        if response.status_code == 200:
+            data = response.json()
+            info(f"Orca parsed JSON: {data}")  # Debug log for parsed JSON
+            
+            if 'data' in data and 'price' in data.get('data', {}):
+                price = data['data']['price']
+                info(f"Orca returned price: {price}")  # Debug log for price
+                return float(price) if price else None
+            elif 'price' in data:
+                price = data['price']
+                info(f"Orca returned price (alt format): {price}")  # Debug log for price
+                return float(price) if price else None
+            else:
+                info(f"Orca API response doesn't contain price data for {token_address}")
+                return None
+        elif response.status_code == 503:
+            # Handle service temporarily unavailable
+            warning(f"Orca API is temporarily unavailable (HTTP 503). This is likely a service outage.")
+            
+            # Try alternative Orca endpoint based on the BitQuery DEX data
+            try:
+                debug("Attempting to use BitQuery DEX data for Orca pricing")
+                if token_address == "So11111111111111111111111111111111111111112":  # SOL
+                    # Use the BitQuery for SOL on Orca's Whirlpools program
+                    bitquery_url = "https://streaming.bitquery.io/graphql"
+                    query = """
+                    query {
+                      Solana {
+                        DEXTradeByTokens(
+                          where: {Trade: {Currency: {MintAddress: {is: "So11111111111111111111111111111111111111112"}}, 
+                                          Dex: {ProgramAddress: {is: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"}}}}
+                          limit: 1
+                          orderBy: {descending: Block_Time}
+                        ) {
+                          Trade {
+                            PriceAgainstSideCurrency: Price
+                          }
+                        }
+                      }
+                    }
+                    """
+                    headers = {"Content-Type": "application/json"}
+                    response = requests.post(bitquery_url, json={"query": query}, headers=headers, timeout=15)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if "data" in result and "Solana" in result["data"] and "DEXTradeByTokens" in result["data"]["Solana"]:
+                            trades = result["data"]["Solana"]["DEXTradeByTokens"]
+                            if trades and len(trades) > 0 and "Trade" in trades[0]:
+                                price = float(trades[0]["Trade"]["PriceAgainstSideCurrency"])
+                                debug(f"Got SOL price from BitQuery: {price}")
+                                return price
+                debug("Failed to get alternative price from BitQuery")
+            except Exception as e:
+                debug(f"Error in BitQuery fallback: {str(e)}")
+            
+            return None
+        else:
+            error(f"Orca API failed for {token_address}: HTTP {response.status_code}")
+            if response.status_code != 404:  # Only log content for non-404 errors
+                try:
+                    error_content = response.text[:200]  # Limit log size
+                    error(f"Orca API error response: {error_content}")
+                except:
+                    pass
+            return None
+    except Exception as e:
+        error(f"Exception in Orca API call: {str(e)}")
         return None
 
 def get_real_time_price_pyth(token_address):
@@ -416,40 +795,72 @@ def market_sell(QUOTE_TOKEN, amount, slippage):
             
         # Get quote from Jupiter
         quote_url = f'https://quote-api.jup.ag/v6/quote?inputMint={QUOTE_TOKEN}&outputMint={token}&amount={amount}&slippageBps={SLIPPAGE}'
-        quote_response = requests.get(quote_url, timeout=15)
+        info(f"Jupiter quote URL: {quote_url}")  # Debug log for URL
+        
+        try:
+            quote_response = requests.get(quote_url, timeout=15)
+            info(f"Jupiter quote response status: {quote_response.status_code}")  # Debug log for response status
+            info(f"Jupiter quote response headers: {quote_response.headers}")  # Debug log for response headers
+            
+            # Log response content without overwhelming logs
+            if len(quote_response.content) > 500:
+                info(f"Jupiter quote response content (truncated): {quote_response.content[:500]}...")
+            else:
+                info(f"Jupiter quote response content: {quote_response.content}")
+                
+        except requests.exceptions.RequestException as req_e:
+            error(f"Jupiter quote request error: {str(req_e)}")
+            return None
         
         if quote_response.status_code != 200:
             error(f"Failed to get quote: HTTP {quote_response.status_code}")
             return None
             
-        quote = quote_response.json()
+        try:
+            quote = quote_response.json()
+            info(f"Jupiter quote parsed JSON: {json.dumps(quote)[:500]}...")  # Debug log for parsed JSON
+        except json.JSONDecodeError as json_e:
+            error(f"Jupiter quote JSON decode error: {str(json_e)}")
+            return None
+            
         if not quote or "data" not in quote:
             error("Invalid quote response from Jupiter")
             return None
             
         # Create swap transaction
         try:
+            info(f"Sending Jupiter swap request...")
+            swap_url = 'https://quote-api.jup.ag/v6/swap'
+            swap_payload = {
+                "quoteResponse": quote,
+                "userPublicKey": str(KEY.pubkey()),
+                "prioritizationFeeLamports": PRIORITY_FEE
+            }
+            info(f"Jupiter swap URL: {swap_url}")  # Debug log for URL
+            info(f"Jupiter swap payload (partial): {str(swap_payload)[:200]}...")  # Debug log for payload
+            
             txRes = requests.post(
-                'https://quote-api.jup.ag/v6/swap',
+                swap_url,
                 headers={"Content-Type": "application/json"},
                 timeout=15,
-                json={
-                    "quoteResponse": quote,
-                    "userPublicKey": str(KEY.pubkey()),
-                    "prioritizationFeeLamports": PRIORITY_FEE
-                }
+                json=swap_payload
             )
             
+            info(f"Jupiter swap response status: {txRes.status_code}")  # Debug log for response status
             if txRes.status_code != 200:
                 error(f"Failed to create swap transaction: HTTP {txRes.status_code}")
+                # Log response content
+                error(f"Jupiter swap error response: {txRes.content}")
                 return None
                 
             tx_data = txRes.json()
             if not tx_data or "swapTransaction" not in tx_data:
                 error("Invalid swap transaction response")
+                error(f"Jupiter swap response content: {txRes.content}")
                 return None
                 
             swapTx = base64.b64decode(tx_data['swapTransaction'])
+            info(f"Successfully decoded swap transaction")
         except Exception as e:
             error(f"Error creating swap transaction: {str(e)}")
             return None
@@ -459,6 +870,7 @@ def market_sell(QUOTE_TOKEN, amount, slippage):
             tx1 = VersionedTransaction.from_bytes(swapTx)
             tx = VersionedTransaction(tx1.message, [KEY])
             
+            info(f"Sending transaction to network...")
             txId = http_client.send_raw_transaction(
                 bytes(tx), 
                 TxOpts(skip_preflight=True)
@@ -1090,6 +1502,12 @@ def elegant_entry(symbol, buy_under):
         price = token_price(symbol)
         pos_usd = pos * price
         size_needed = usd_size - pos_usd
+        if size_needed > max_usd_order_size: 
+            chunk_size = max_usd_order_size
+        else: 
+            chunk_size = size_needed
+        chunk_size = int(chunk_size * 10**6)
+        chunk_size = str(chunk_size)
 
 def breakout_entry(symbol, BREAKOUT_PRICE):
     """
@@ -1185,6 +1603,12 @@ def ai_entry(symbol, amount):
     
     pos = get_position(symbol)
     price = token_price(symbol)
+    
+    # Add safety check for price
+    if price is None or price <= 0:
+        warning(f"Error executing trade for {symbol}: No valid price available")
+        return False
+        
     pos_usd = pos * price
     
     info(f"Target allocation: ${target_size:.2f} USD (max 30% of ${usd_size})")
@@ -1193,13 +1617,13 @@ def ai_entry(symbol, amount):
     # Check if we're already at or above target
     if pos_usd >= (target_size * 0.97):
         info("Position already at or above target size")
-        return
+        return True
         
     # Calculate how much more we need to buy
     size_needed = target_size - pos_usd
     if size_needed <= 0:
         info("No additional size needed")
-        return
+        return True
         
     # For order execution, we'll chunk into max_usd_order_size pieces
     if size_needed > max_usd_order_size: 
@@ -1212,61 +1636,40 @@ def ai_entry(symbol, amount):
     
     info(f"Entry chunk size: {chunk_size} (chunking ${size_needed:.2f} into ${max_usd_order_size:.2f} orders)")
 
-    while pos_usd < (target_size * 0.97):
-        info(f"AI Agent executing entry for {symbol[:8]}...")
-        debug(f"Position: {round(pos,2)} | Price: {round(price,8)} | USD Value: ${round(pos_usd,2)}")
+    try:
+        while pos_usd < (target_size * 0.97):
+            info(f"AI Agent executing entry for {symbol[:8]}...")
+            debug(f"Position: {round(pos,2)} | Price: {round(price,8)} | USD Value: ${round(pos_usd,2)}")
 
-        try:
-            for i in range(orders_per_open):
-                market_buy(symbol, chunk_size, slippage)
-                info(f"AI Agent placed order {i+1}/{orders_per_open} for {symbol[:8]}")
-                time.sleep(1)
-
-            time.sleep(tx_sleep)
-            
-            # Update position info
-            pos = get_position(symbol)
-            price = token_price(symbol)
-            pos_usd = pos * price
-            
-            # Break if we're at or above target
-            if pos_usd >= (target_size * 0.97):
-                break
-                
-            # Recalculate needed size
-            size_needed = target_size - pos_usd
-            if size_needed <= 0:
-                break
-                
-            # Determine next chunk size
-            if size_needed > max_usd_order_size: 
-                chunk_size = max_usd_order_size
-            else: 
-                chunk_size = size_needed
-            chunk_size = int(chunk_size * 10**6)
-            chunk_size = str(chunk_size)
-
-        except Exception as e:
             try:
-                warning("AI Agent retrying order in 30 seconds...")
-                time.sleep(30)
                 for i in range(orders_per_open):
                     market_buy(symbol, chunk_size, slippage)
-                    info(f"AI Agent retry order {i+1}/{orders_per_open} for {symbol[:8]}")
+                    info(f"AI Agent placed order {i+1}/{orders_per_open} for {symbol[:8]}")
                     time.sleep(1)
 
                 time.sleep(tx_sleep)
+                
+                # Update position info
                 pos = get_position(symbol)
                 price = token_price(symbol)
+                
+                # Add safety check for price
+                if price is None or price <= 0:
+                    warning(f"Error updating position data: No valid price available")
+                    return True  # Return True since we already executed some trades
+                    
                 pos_usd = pos * price
                 
+                # Break if we're at or above target
                 if pos_usd >= (target_size * 0.97):
                     break
                     
+                # Recalculate needed size
                 size_needed = target_size - pos_usd
                 if size_needed <= 0:
                     break
                     
+                # Determine next chunk size
                 if size_needed > max_usd_order_size: 
                     chunk_size = max_usd_order_size
                 else: 
@@ -1275,10 +1678,49 @@ def ai_entry(symbol, amount):
                 chunk_size = str(chunk_size)
 
             except Exception as e:
-                error("AI Agent encountered critical error, manual intervention needed")
-                return
+                try:
+                    warning(f"AI Agent retrying order in 30 seconds... Error: {str(e)}")
+                    time.sleep(30)
+                    for i in range(orders_per_open):
+                        market_buy(symbol, chunk_size, slippage)
+                        info(f"AI Agent retry order {i+1}/{orders_per_open} for {symbol[:8]}")
+                        time.sleep(1)
 
-    info("AI Agent completed position entry")
+                    time.sleep(tx_sleep)
+                    pos = get_position(symbol)
+                    price = token_price(symbol)
+                    
+                    # Add safety check for price
+                    if price is None or price <= 0:
+                        warning(f"Error updating position data after retry: No valid price available")
+                        return True  # Return True since we already executed some trades
+                        
+                    pos_usd = pos * price
+                    
+                    if pos_usd >= (target_size * 0.97):
+                        break
+                        
+                    size_needed = target_size - pos_usd
+                    if size_needed <= 0:
+                        break
+                        
+                    if size_needed > max_usd_order_size: 
+                        chunk_size = max_usd_order_size
+                    else: 
+                        chunk_size = size_needed
+                    chunk_size = int(chunk_size * 10**6)
+                    chunk_size = str(chunk_size)
+
+                except Exception as e:
+                    error(f"AI Agent encountered critical error: {str(e)}")
+                    return False
+
+        info("AI Agent completed position entry")
+        return True
+        
+    except Exception as e:
+        error(f"Error executing trade for {symbol}: {str(e)}")
+        return False
 
 def get_token_balance(token_address):
     """
@@ -1548,42 +1990,74 @@ def market_buy(token, amount, slippage):
             
         # Get quote from Jupiter
         quote_url = f'https://quote-api.jup.ag/v6/quote?inputMint={QUOTE_TOKEN}&outputMint={token}&amount={amount}&slippageBps={SLIPPAGE}'
-        quote_response = requests.get(quote_url, timeout=15)
+        info(f"Jupiter buy quote URL: {quote_url}")  # Debug log for URL
+        
+        try:
+            quote_response = requests.get(quote_url, timeout=15)
+            info(f"Jupiter buy quote response status: {quote_response.status_code}")  # Debug log for response status
+            info(f"Jupiter buy quote response headers: {quote_response.headers}")  # Debug log for response headers
+            
+            # Log response content without overwhelming logs
+            if len(quote_response.content) > 500:
+                info(f"Jupiter buy quote response content (truncated): {quote_response.content[:500]}...")
+            else:
+                info(f"Jupiter buy quote response content: {quote_response.content}")
+                
+        except requests.exceptions.RequestException as req_e:
+            error(f"Jupiter buy quote request error: {str(req_e)}")
+            return None
         
         if quote_response.status_code != 200:
-            error(f"Failed to get quote: HTTP {quote_response.status_code}")
+            error(f"Failed to get buy quote: HTTP {quote_response.status_code}")
             return None
             
-        quote = quote_response.json()
+        try:
+            quote = quote_response.json()
+            info(f"Jupiter buy quote parsed JSON: {json.dumps(quote)[:500]}...")  # Debug log for parsed JSON
+        except json.JSONDecodeError as json_e:
+            error(f"Jupiter buy quote JSON decode error: {str(json_e)}")
+            return None
+            
         if not quote or "data" not in quote:
-            error("Invalid quote response from Jupiter")
+            error("Invalid buy quote response from Jupiter")
             return None
             
         # Create swap transaction
         try:
+            info(f"Sending Jupiter buy swap request...")
+            swap_url = 'https://quote-api.jup.ag/v6/swap'
+            swap_payload = {
+                "quoteResponse": quote,
+                "userPublicKey": str(KEY.pubkey()),
+                "prioritizationFeeLamports": PRIORITY_FEE
+            }
+            info(f"Jupiter buy swap URL: {swap_url}")  # Debug log for URL
+            info(f"Jupiter buy swap payload (partial): {str(swap_payload)[:200]}...")  # Debug log for payload
+            
             txRes = requests.post(
-                'https://quote-api.jup.ag/v6/swap',
+                swap_url,
                 headers={"Content-Type": "application/json"},
                 timeout=15,
-                json={
-                    "quoteResponse": quote,
-                    "userPublicKey": str(KEY.pubkey()),
-                    "prioritizationFeeLamports": PRIORITY_FEE
-                }
+                json=swap_payload
             )
             
+            info(f"Jupiter buy swap response status: {txRes.status_code}")  # Debug log for response status
             if txRes.status_code != 200:
-                error(f"Failed to create swap transaction: HTTP {txRes.status_code}")
+                error(f"Failed to create buy swap transaction: HTTP {txRes.status_code}")
+                # Log response content
+                error(f"Jupiter buy swap error response: {txRes.content}")
                 return None
                 
             tx_data = txRes.json()
             if not tx_data or "swapTransaction" not in tx_data:
-                error("Invalid swap transaction response")
+                error("Invalid buy swap transaction response")
+                error(f"Jupiter buy swap response content: {txRes.content}")
                 return None
                 
             swapTx = base64.b64decode(tx_data['swapTransaction'])
+            info(f"Successfully decoded buy swap transaction")
         except Exception as e:
-            error(f"Error creating swap transaction: {str(e)}")
+            error(f"Error creating buy swap transaction: {str(e)}")
             return None
             
         # Sign and send transaction
@@ -1591,6 +2065,7 @@ def market_buy(token, amount, slippage):
             tx1 = VersionedTransaction.from_bytes(swapTx)
             tx = VersionedTransaction(tx1.message, [KEY])
             
+            info(f"Sending buy transaction to network...")
             txId = http_client.send_raw_transaction(
                 bytes(tx), 
                 TxOpts(skip_preflight=True)
@@ -1599,7 +2074,7 @@ def market_buy(token, amount, slippage):
             info(f"Buy transaction sent: https://solscan.io/tx/{str(txId)}")
             return str(txId)
         except Exception as e:
-            error(f"Error sending transaction: {str(e)}")
+            error(f"Error sending buy transaction: {str(e)}")
             return None
             
     except Exception as e:
@@ -1618,59 +2093,27 @@ def get_token_balance_usd(token_address, display_token_name=None):
         float: USD value of the token balance
     """
     try:
-        from web3 import Web3
-        import json
+        # Get token balance using the existing Solana-specific function
+        balance = get_token_balance(token_address)
         
-        # Connect to an Ethereum node
-        web3 = Web3(Web3.HTTPProvider(os.getenv("ETH_RPC_URL")))
-        if not web3.is_connected():
-            error("Failed to connect to Ethereum node")
-            return 0
-            
-        # Get private key and derive address
-        private_key = os.getenv("ETHEREUM_PRIVATE_KEY")
-        if not private_key:
-            error("Ethereum private key not found in environment variables")
-            return 0
-            
-        account = web3.eth.account.from_key(private_key)
-        wallet_address = account.address
-        
-        # ERC20 Token ABI for balance, decimals, and symbol
-        token_abi = json.loads('[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"}]')
-        
-        # Create contract instance
-        token_contract = web3.eth.contract(address=token_address, abi=token_abi)
-        
-        # Get token balance
-        balance = token_contract.functions.balanceOf(wallet_address).call()
-        
-        # Get token decimals and symbol
-        try:
-            decimals = token_contract.functions.decimals().call()
-            token_symbol = token_contract.functions.symbol().call() if not display_token_name else display_token_name
-        except Exception as e:
-            warning(f"Could not get token details: {str(e)}")
-            decimals = 18
+        if balance == 0:
             token_symbol = display_token_name if display_token_name else token_address[:8]
-        
-        # Convert to human-readable format
-        balance_float = balance / (10 ** decimals)
-        
-        if balance_float == 0:
             info(f"No {token_symbol} balance found in wallet")
             return 0
             
         # Get token price
         token_price = get_token_price(token_address)
         if token_price is None or token_price == 0:
+            token_symbol = display_token_name if display_token_name else token_address[:8]
             warning(f"Could not get price for {token_symbol}")
             return 0
             
         # Calculate USD value
-        usd_value = balance_float * token_price
+        usd_value = balance * token_price
         
-        info(f"Balance: {balance_float:.4f} {token_symbol} = ${usd_value:.2f}")
+        # Get display symbol
+        token_symbol = display_token_name if display_token_name else token_address[:8]
+        info(f"Balance: {balance:.4f} {token_symbol} = ${usd_value:.2f}")
         return usd_value
         
     except Exception as e:
@@ -1995,22 +2438,46 @@ def get_token_price(token_address):
                 
                 # Setup Solana client
                 solana_client = Client(os.getenv("RPC_ENDPOINT"))
+                info(f"RPC_ENDPOINT: {os.getenv('RPC_ENDPOINT')}")  # Debug log for RPC endpoint
                 
                 # Jupiter API endpoint for quotes
-                url = f"https://quote-api.jup.ag/v6/quote?inputMint={token_address}&outputMint={usdc_mint}&amount=1000000000&slippageBps=50"
+                url = f"https://lite-api.jup.ag/price/v2?ids={token_address}"
+                info(f"Jupiter price URL: {url}")  # Debug log for URL
                 
-                response = requests.get(url, timeout=10)
+                try:
+                    response = requests.get(url, timeout=10)
+                    info(f"Jupiter price response status: {response.status_code}")  # Debug log for response status
+                    
+                    # Log response content without overwhelming logs
+                    if len(response.content) > 500:
+                        info(f"Jupiter price response content (truncated): {response.content[:500]}...")
+                    else:
+                        info(f"Jupiter price response content: {response.content}")
+                        
+                except requests.exceptions.RequestException as req_e:
+                    error(f"Jupiter price request error: {str(req_e)}")
+                    return None
                 
                 if response.status_code == 200:
-                    data = response.json()
-                    if data and 'data' in data and 'outAmount' in data['data']:
-                        # USDC has 6 decimals
-                        price = int(data['data']['outAmount']) / (10**6)
-                        info(f"Got price from Jupiter: ${price}")
-                        return float(price)
+                    try:
+                        data = response.json()
+                        info(f"Jupiter price parsed JSON: {json.dumps(data)[:500]}...")  # Debug log for parsed JSON
+                    except json.JSONDecodeError as json_e:
+                        error(f"Jupiter price JSON decode error: {str(json_e)}")
+                        return None
+                    
+                    # Check for new Jupiter v2 API format
+                    if data and 'data' in data and token_address in data['data']:
+                        price_data = data['data'][token_address]
+                        if price_data and 'price' in price_data:
+                            price = float(price_data['price'])
+                            info(f"Got price from Jupiter v2 API: ${price:.8f} per token")
+                            return price
             except Exception as e:
                 warning(f"Jupiter price fetch failed: {str(e)}")
-                
+                import traceback
+                error(f"Jupiter price fetch traceback: {traceback.format_exc()}")  # Detailed error info
+        
         # If all methods fail
         warning(f"Could not get price for token {token_address[:8]}")
         return None
@@ -2288,3 +2755,177 @@ def stake_sol_jito(amount):
     except Exception as e:
         error(f"Error staking SOL: {str(e)}")
         return None
+
+def get_wallet_tokens(wallet_address):
+    """Get a list of token mint addresses with non-zero balances from a wallet"""
+    try:
+        rpc_endpoint = os.getenv("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")
+        
+        # RPC payload to get token accounts by owner
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getTokenAccountsByOwner",
+            "params": [
+                wallet_address,
+                {
+                    "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+                },
+                {
+                    "encoding": "jsonParsed"
+                }
+            ]
+        }
+        
+        # Send the RPC request
+        response = requests.post(rpc_endpoint, json=payload)
+        data = response.json()
+        
+        if "result" not in data:
+            return []
+        
+        # Extract token addresses with non-zero balances
+        tokens = []
+        for account in data["result"]["value"]:
+            try:
+                parsed_info = account["account"]["data"]["parsed"]["info"]
+                token_mint = parsed_info["mint"]
+                
+                # Check if balance is greater than 0
+                if float(parsed_info["tokenAmount"]["uiAmount"]) > 0:
+                    tokens.append(token_mint)
+            except (KeyError, ValueError):
+                continue
+        
+        return tokens
+    except Exception as e:
+        print(f"Error in get_wallet_tokens: {str(e)}")
+        return []
+
+def get_wallet_tokens_with_value(wallet_address):
+    """
+    Enhanced function to get tokens from a wallet with full details including price and USD value
+    """
+    try:
+        # Get token accounts using RPC call
+        rpc_endpoint = os.getenv("RPC_ENDPOINT", "https://api.mainnet-beta.solana.com")
+        
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "my-wallet",
+            "method": "getTokenAccountsByOwner",
+            "params": [
+                wallet_address,
+                {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
+                {"encoding": "jsonParsed"}
+            ]
+        }
+        
+        response = requests.post(rpc_endpoint, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        
+        if "result" not in data or not data["result"]["value"]:
+            print(f"No token accounts found for wallet {wallet_address}")
+            return []
+        
+        # Process token data
+        tokens = []
+        for account in data["result"]["value"]:
+            try:
+                account_info = account["account"]["data"]["parsed"]["info"]
+                token_mint = account_info["mint"]
+                balance = float(account_info["tokenAmount"]["uiAmount"])
+                decimals = account_info["tokenAmount"]["decimals"]
+                
+                if balance > 0:
+                    # Initialize price to 0 as fallback
+                    price = 0
+                    
+                    # Try multiple price sources with robust error handling
+                    try:
+                        price = token_price(token_mint)
+                    except Exception as e:
+                        print(f"INFO: Falling back to Jupiter API for price...")
+                        try:
+                            price = get_real_time_price_jupiter(token_mint)
+                        except Exception as e:
+                            try:
+                                url = f"https://lite-api.jup.ag/price/v2?ids={token_mint}"
+                                resp = requests.get(url, timeout=5)  # Add timeout
+                                if resp.status_code == 200:
+                                    price_data = resp.json()
+                                    if price_data and 'data' in price_data and token_mint in price_data['data']:
+                                        price = price_data['data'][token_mint].get('price', 0)
+                            except Exception as e:
+                                print(f"WARNING: Could not get price for token {token_mint}")
+                    
+                    # Even if price is 0, still include the token in results
+                    usd_value = balance * (price or 0)  # Use 0 if price is None
+                    
+                    tokens.append({
+                        "mint": token_mint,
+                        "balance": balance,
+                        "decimals": decimals,
+                        "price": price or 0,  # Ensure price is never None
+                        "usd_value": usd_value
+                    })
+            except Exception as e:
+                print(f"WARNING: Error processing token account: {str(e)}")
+                continue
+        
+        # Sort tokens by USD value descending
+        tokens.sort(key=lambda x: x["usd_value"], reverse=True)
+        
+        # Always return the tokens we found, even if price lookups failed
+        if tokens:
+            print(f"Found {len(tokens)} tokens with non-zero balance in wallet {wallet_address[:8]}")
+        
+        return tokens
+        
+    except Exception as e:
+        print(f"Error fetching wallet tokens with value: {str(e)}")
+        return []
+
+def get_wallet_total_value(wallet_address):
+    """
+    Calculate total USD value of all tokens in a wallet
+    """
+    tokens = get_wallet_tokens_with_value(wallet_address)
+    total_value = sum(token["usd_value"] for token in tokens)
+    return total_value
+
+def adjust_token_price(raw_price, token_decimals):
+    """
+    Adjust token price based on decimal places
+    
+    Args:
+        raw_price (float): The raw price calculation
+        token_decimals (int): Number of decimal places in the token
+        
+    Returns:
+        float: The adjusted price
+    """
+    # For the Jupiter API, we're requesting 1 billion (10^9) token units
+    # The correct price adjustment depends on token decimal places
+    
+    # For 9 decimal tokens:
+    # - 1 billion units (10^9) = 1 full token
+    # - Divide by 10^3 = 1000 to get correct price
+    
+    # For 6 decimal tokens:
+    # - 1 billion units (10^9) = 1000 full tokens
+    # - Divide by 10^0 = 1 to get correct price
+    
+    # For 12 decimal tokens:
+    # - 1 billion units (10^9) = 0.001 full tokens
+    # - Divide by 10^6 = 1,000,000 to get correct price
+    
+    # Formula: Adjustment = 10^(decimal_places - 6)
+    adjustment_factor = 10**(token_decimals - 6)
+    adjusted_price = raw_price / adjustment_factor
+    
+    info(f"[PRICE-ADJUST] Token has {token_decimals} decimals, adjustment factor: {adjustment_factor}")
+    info(f"[PRICE-ADJUST] Adjusted price from {raw_price} to {adjusted_price}")
+    
+    return adjusted_price

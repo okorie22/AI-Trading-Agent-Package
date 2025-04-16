@@ -43,12 +43,24 @@ from src.config import (TRADING_MODE, USE_HYPERLIQUID, DEFAULT_LEVERAGE,
                        ACTIVITY_WINDOW_HOURS, PAPER_TRADING_ENABLED, PAPER_INITIAL_BALANCE,
                        PAPER_TRADING_SLIPPAGE, PAPER_TRADING_RESET_ON_START, DYNAMIC_MODE)
 
+
+# Import Solana libraries for wallet token functions
+try:
+    from solana.rpc.api import Client
+    from solana.publickey import PublicKey
+except ImportError:
+    print("WARNING: Solana libraries not installed. Some functionality may be limited.")
+
+# Attempt to import our custom token functions
+try:
+    from src.nice_funcs import get_wallet_tokens, get_token_balance_usd
+except ImportError:
+    print("WARNING: Failed to import token functions from src.nice_funcs")
+
 # Suppress Qt warnings
-import logging
 logging.getLogger("PySide6").setLevel(logging.ERROR)
 
 # Filter out specific Qt warnings
-import os
 os.environ['QT_LOGGING_RULES'] = "*.debug=false;qt.qpa.*=false"
 
 # Define maximum widget size constant (equivalent to QWIDGETSIZE_MAX in Qt)
@@ -129,7 +141,6 @@ class NeonFrame(QFrame):
                 border-radius: 5px;
             }}
         """)
-
 
 
 # Then modify ConsoleOutput class
@@ -5895,8 +5906,8 @@ Current staking protocols: marinade, lido, jito
     def setup_ui(self):
         # Remove fixed height constraints for the entire tab
         layout = QVBoxLayout(self)
-        layout.setSpacing(5)  # Reduce spacing between elements
-        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        layout.setSpacing(10)  # Increase spacing between elements
+        layout.setContentsMargins(10, 10, 10, 10)  # Increase margins for the main layout
         
         self.setStyleSheet(f"""
             QWidget {{
@@ -5932,25 +5943,29 @@ Current staking protocols: marinade, lido, jito
             }}
         """)
         
-        # Create scroll area for all settings
-        scroll_widget = QWidget()
-        scroll_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll_layout = QVBoxLayout(scroll_widget)
-        scroll_layout.setSpacing(5)  # Reduce spacing between elements
+        # Define standard width for all controls
+        control_width = 635
+        field_width = 635
         
-        # For the scroll_widget - set to allow dynamic sizing
-        scroll_layout.setAlignment(Qt.AlignTop)  # Align to top to prevent stretching
+        # Create scroll area for all settings
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        scroll_area.setContentsMargins(10, 10, 10, 10)  # Add margins to scroll area
+        
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setSpacing(15)  # Increase spacing between groups
+        scroll_layout.setContentsMargins(15, 15, 15, 15)  # Add padding inside the scroll area
         
         # 1. AI Prompt Section (from Chart Analysis Agent)
         ai_group = QGroupBox("Chart Analysis AI Prompt")
-        ai_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         ai_layout = QVBoxLayout(ai_group)
-        ai_layout.setSpacing(2)  # Reduce spacing
-        ai_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        ai_layout.setContentsMargins(10, 15, 10, 10)  # Add some internal padding
         
-        # AI Prompt
+        # AI Prompt - Create text editor but don't set text (will be loaded from config)
         self.prompt_text = QTextEdit()
-        self.prompt_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Use the prompt value loaded from config, or use the default if not available
         if hasattr(self, 'chart_analysis_prompt_value') and self.chart_analysis_prompt_value:
@@ -5986,28 +6001,16 @@ Make your own independent assessment.
             self.prompt_text.setPlainText(default_prompt)
             
         self.prompt_text.setMinimumHeight(200)
-        
-        # Add scrollbar for usability
-        self.prompt_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        # Disable automatic height adjustment
-        self.prompt_text.document().setDocumentMargin(0)
-        self.prompt_text.setAcceptRichText(False)
-        
         ai_layout.addWidget(self.prompt_text)
         
         scroll_layout.addWidget(ai_group)
         
         # Add Staking AI Prompt section
         staking_ai_group = QGroupBox("Staking AI Prompt")
-        staking_ai_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         staking_ai_layout = QVBoxLayout(staking_ai_group)
-        staking_ai_layout.setSpacing(2)  # Reduce spacing
-        staking_ai_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
         
-        # Staking AI Prompt
+        # Staking AI Prompt - Create text editor but don't set text (will be loaded from config)
         self.staking_prompt_text = QTextEdit()
-        self.staking_prompt_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Use the staking prompt value loaded from config, or use the default if not available
         if hasattr(self, 'dca_ai_prompt_value') and self.dca_ai_prompt_value:
@@ -6042,42 +6045,21 @@ Current staking protocols: marinade, lido, jito
             self.staking_prompt_text.setPlainText(default_staking_prompt)
             
         self.staking_prompt_text.setMinimumHeight(200)
-        
-        # Add scrollbar for usability
-        self.staking_prompt_text.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        # Disable automatic height adjustment
-        self.staking_prompt_text.document().setDocumentMargin(0)
-        self.staking_prompt_text.setAcceptRichText(False)
-        
         staking_ai_layout.addWidget(self.staking_prompt_text)
         
         scroll_layout.addWidget(staking_ai_group)
         
-        # Define standard width for all controls - remove fixed widths
-        control_width = 635
-        field_width = 635
-        
         # 2. Chart Analysis Settings
         chart_group = QGroupBox("Chart Analysis Settings")
-        chart_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         chart_layout = QGridLayout(chart_group)
-        chart_layout.setSpacing(5)  # Reduce spacing
-        chart_layout.setContentsMargins(5, 10, 5, 5)  # Reduce margins
-        
-        # Make column 0 (labels) minimum width - not fixed
-        chart_layout.setColumnMinimumWidth(0, 150)
-        # Column 1 can expand
         
         # Chart Interval
         chart_layout.addWidget(QLabel("Chart Interval:"), 0, 0)
         chart_interval_widget = QWidget()
-        chart_interval_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         chart_interval_layout = QHBoxLayout(chart_interval_widget)
         chart_interval_layout.setContentsMargins(0, 0, 0, 0)
 
         self.chart_interval_value = QSpinBox()
-        self.chart_interval_value.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.chart_interval_value.setRange(1, 30)
         self.chart_interval_value.setValue(2)
         self.chart_interval_value.setToolTip("Number of time units between chart analysis cycles")
@@ -6204,16 +6186,12 @@ Current staking protocols: marinade, lido, jito
         self.fibonacci_lookback.setToolTip("Number of candles to look back for finding swing points")
         chart_layout.addWidget(self.fibonacci_lookback, 9, 1)
         
-        # Apply sizing policies to all widgets in chart section to allow horizontal resizing
+        # Apply fixed width to all widgets in chart section
         for row in range(chart_layout.rowCount()):
             item = chart_layout.itemAtPosition(row, 1)
             if item and item.widget():
-                # Remove minimum width constraints
-                if isinstance(item.widget(), QWidget):
-                    sp = item.widget().sizePolicy()
-                    # Allow horizontal expansion
-                    if sp.horizontalPolicy() == QSizePolicy.Fixed:
-                        item.widget().setSizePolicy(QSizePolicy.Expanding, sp.verticalPolicy())
+                item.widget().setMinimumWidth(control_width)
+                item.widget().setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         scroll_layout.addWidget(chart_group)
         
@@ -6222,9 +6200,10 @@ Current staking protocols: marinade, lido, jito
         dca_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         dca_layout = QGridLayout(dca_group)
         
-        # Make column 0 (labels) minimum width - not fixed
-        dca_layout.setColumnMinimumWidth(0, 150)
-        # Column 1 can expand
+        # Make column 0 (labels) fixed width
+        dca_layout.setColumnMinimumWidth(0, 200)
+        # Make column 1 (input fields) fixed width
+        dca_layout.setColumnMinimumWidth(1, field_width)
         
         # DCA Interval - Replace with time-based options
         dca_layout.addWidget(QLabel("DCA Interval:"), 0, 0)
@@ -6317,16 +6296,12 @@ Current staking protocols: marinade, lido, jito
         self.use_dynamic_allocation.stateChanged.connect(self.toggle_fixed_dca_amount)
         dca_layout.addWidget(self.use_dynamic_allocation, 5, 1)
         
-        # Apply sizing policies to all widgets in DCA section
+        # Apply fixed width to all widgets in DCA section
         for row in range(dca_layout.rowCount()):
             item = dca_layout.itemAtPosition(row, 1)
             if item and item.widget():
-                # Remove minimum width constraints
-                if isinstance(item.widget(), QWidget):
-                    sp = item.widget().sizePolicy()
-                    # Allow horizontal expansion
-                    if sp.horizontalPolicy() == QSizePolicy.Fixed:
-                        item.widget().setSizePolicy(QSizePolicy.Expanding, sp.verticalPolicy())
+                item.widget().setMinimumWidth(control_width)
+                item.widget().setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         scroll_layout.addWidget(dca_group)
         
@@ -6335,9 +6310,10 @@ Current staking protocols: marinade, lido, jito
         staking_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         staking_layout = QGridLayout(staking_group)
         
-        # Make column 0 (labels) minimum width - not fixed
-        staking_layout.setColumnMinimumWidth(0, 150)
-        # Column 1 can expand
+        # Make column 0 (labels) fixed width
+        staking_layout.setColumnMinimumWidth(0, 200)
+        # Make column 1 (input fields) fixed width
+        staking_layout.setColumnMinimumWidth(1, field_width)
         
         # Staking Mode
         staking_layout.addWidget(QLabel("Staking Mode:"), 0, 0)
@@ -6449,16 +6425,12 @@ Current staking protocols: marinade, lido, jito
             # Use default time
             self.yield_optimization_run_at_time.setTime(QTime(9, 0))
         
-        # Apply sizing policies to all widgets in staking section
+        # Apply fixed width to all widgets in staking section
         for row in range(staking_layout.rowCount()):
             item = staking_layout.itemAtPosition(row, 1)
             if item and item.widget():
-                # Remove minimum width constraints
-                if isinstance(item.widget(), QWidget):
-                    sp = item.widget().sizePolicy()
-                    # Allow horizontal expansion
-                    if sp.horizontalPolicy() == QSizePolicy.Fixed:
-                        item.widget().setSizePolicy(QSizePolicy.Expanding, sp.verticalPolicy())
+                item.widget().setMinimumWidth(control_width)
+                item.widget().setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         scroll_layout.addWidget(staking_group)
         
@@ -6501,15 +6473,8 @@ So11111111111111111111111111111111111111112: SOL,SOL"""
         scroll_layout.addWidget(save_button)
         
         # Create scroll area to allow content to scroll both vertically and horizontally
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(scroll_widget)
-        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        
-        # Add the scroll area to the main layout with stretch factor
-        layout.addWidget(scroll_area, 1)  # Give it a stretch factor for expansion
+        layout.addWidget(scroll_area)
         
         # Add spacer at the end of the scroll_layout to push content up
         spacer = QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -10364,8 +10329,6 @@ class MetricsTab(QWidget):
             self.token_table.setItem(i, 2, QTableWidgetItem(f"${token['avg_position_size']:.2f}"))
             
         # TODO: Update timing and position charts when implemented
-
-
 
 def main():
     app = QApplication(sys.argv)

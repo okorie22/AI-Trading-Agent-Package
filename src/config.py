@@ -26,6 +26,14 @@ CONSOLE_LOG_LEVEL = "INFO"  # Level for console UI (can be different from file l
 SHOW_DEBUG_IN_CONSOLE = False  # Whether to show DEBUG messages in the UI console
 SHOW_TIMESTAMPS_IN_CONSOLE = True  # Whether to show timestamps in console messages
 
+# Global AI Model Settings (used as fallbacks)
+AI_MODEL = "claude-3-haiku-20240307"
+AI_TEMPERATURE = 0.7
+AI_MAX_TOKENS = 1024
+
+# Agent Runtime Settings ⏱️
+SLEEP_BETWEEN_RUNS_MINUTES = 15  # General sleep time between agent runs 🕒
+
 # 💰 Trading Configuration
 USDC_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # Never trade or close
 SOL_ADDRESS = "So11111111111111111111111111111111111111111"   # Never trade or close
@@ -58,10 +66,17 @@ previous_monitored_tokens = []
 # Using the same list for trading
 tokens_to_trade = MONITORED_TOKENS  
 
+# List of wallets to track for CopyBot - Must be in the correct format
+WALLETS_TO_TRACK = WALLETS_TO_TRACK = [
+    "FXzJ6xwH2HfdKshERVAYiLh79PAUw9zC7ucngupt91ap",
+    "242p259rfsb9J3X3mhnWw35UM2hfMDg14G47CQ66s9ZW",
+    # Add more wallets here as needed
+]
+
 # CopyBot Runtime Mode
 COPYBOT_CONTINUOUS_MODE = False
 COPYBOT_INTERVAL_MINUTES = 5
-COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN = True
+COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN = False
 
 #CopyBot Settings
 FILTER_MODE = "Dynamic"
@@ -83,12 +98,10 @@ API_SLEEP_SECONDS = 1.8
 API_TIMEOUT_SECONDS = 37
 API_MAX_RETRIES = 10
 
-# List of wallets to track for CopyBot - Must be in the correct format
-WALLETS_TO_TRACK = WALLETS_TO_TRACK = [
-    "FXzJ6xwH2HfdKshERVAYiLh79PAUw9zC7ucngupt91ap",
-    "242p259rfsb9J3X3mhnWw35UM2hfMDg14G47CQ66s9ZW",
-    # Add more wallets here as needed
-]
+# Model override settings for CopyBot
+COPYBOT_MODEL_OVERRIDE = "deepseek-reasoner"
+COPYBOT_MIN_CONFIDENCE = 79
+ENABLE_AI_ANALYSIS = True# Toggle for AI analysis in CopyBot
 
 # CopyBot Portfolio Analysis Prompt - The AI prompt template for analysis
 PORTFOLIO_ANALYSIS_PROMPT = """
@@ -127,21 +140,23 @@ Remember:
 - Consider both position performance against others in the list and market conditions
 """
 
-# Model override settings for CopyBot
-COPYBOT_MODEL_OVERRIDE = "deepseek-reasoner"
+# Trading Mode Configuration 🔄
+TRADING_MODE = "spot"
+USE_HYPERLIQUID = False
+DEFAULT_LEVERAGE = 2.0
+MAX_LEVERAGE = 5.0
+MIRROR_WITH_LEVERAGE = False
+LEVERAGE_SAFETY_BUFFER = 0.8
 
-# CopyBot AI Configuration 
-COPYBOT_MIN_CONFIDENCE = 79
-ENABLE_AI_ANALYSIS = True# Toggle for AI analysis in CopyBot
+# Token to Hyperliquid Symbol Mapping
+TOKEN_TO_HL_MAPPING = TOKEN_TO_HL_MAPPING = {
+    # Format: "Solana token address": "Hyperliquid symbol",
+    "So11111111111111111111111111111111111111112": "SOL",
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
+    # Add more mappings as needed
+}
 
-# Position sizing 🎯
-usd_size = 30.0# account_balance * 0.085 or 0.12: Size of position to hold
-max_usd_order_size = 6.0# Max order size
-tx_sleep = 18.0# Sleep between transactions
-slippage = 219# 500 = 5% and 50 = .5% slippage
-PRIORITY_FEE = 100006# ~0.02 USD at current SOL prices
-orders_per_open = 5# Multiple orders for better fill rates
-
+#Backtesting
 DAYSBACK_4_DATA = 6
 DATA_TIMEFRAME = '1H'
 
@@ -150,6 +165,14 @@ PAPER_TRADING_ENABLED = False# Toggle paper trading mode on/off
 PAPER_INITIAL_BALANCE = 1005.0# Initial paper trading balance in USD
 PAPER_TRADING_SLIPPAGE = 104# Simulated slippage for paper trades (100 = 1%)
 PAPER_TRADING_RESET_ON_START = False# Whether to reset paper portfolio on app start
+
+# Position sizing 🎯
+usd_size = 30.0# account_balance * 0.085 or 0.12: Size of position to hold
+max_usd_order_size = 6.0# Max order size
+tx_sleep = 18.0# Sleep between transactions
+slippage = 219# 500 = 5% and 50 = .5% slippage
+PRIORITY_FEE = 100006# ~0.02 USD at current SOL prices
+orders_per_open = 5# Multiple orders for better fill rates
 
 # Risk Management Settings 🛡️
 CASH_PERCENTAGE = 23# Minimum % to keep in USDC as safety buffer (0-100)
@@ -168,33 +191,25 @@ USE_PERCENTAGE = True# If True, use percentage-based limits. If False, use USD-b
 MAX_LOSS_USD = 25.0# Maximum loss in USD before stopping trading
 MAX_GAIN_USD = 25.0# Maximum gain in USD before stopping trading
 
+# Percentage-based limits (used if USE_PERCENTAGE is True)
+MAX_LOSS_PERCENT = 23# Maximum loss as percentage (e.g., 20 = 20% loss)
+MAX_GAIN_PERCENT = 500# Maximum gain as percentage (e.g., 50 = 50% gain)
+
 # USD MINIMUM BALANCE RISK CONTROL
 MINIMUM_BALANCE_USD = 108.0# account_balance * (1/3): If balance falls below this, risk agent will consider closing all positions
-USE_AI_CONFIRMATION = True#risk agent ai confirmation
 
 # Percentage-based limits (used if USE_PERCENTAGE is True)
 MAX_LOSS_PERCENT = 23# Maximum loss as percentage (e.g., 20 = 20% loss)
 MAX_GAIN_PERCENT = 500# Maximum gain as percentage (e.g., 50 = 50% gain)
 
-# Agent Runtime Settings ⏱️
-#RISK_INTERVAL_MINUTES = RISK_CHECK_INTERVAL_MINUTES  # How often Risk Agent checks portfolio (in minutes)
-SLEEP_BETWEEN_RUNS_MINUTES = 15  # General sleep time between agent runs 🕒
-
-# Trading Mode Configuration 🔄
-TRADING_MODE = "spot"
-USE_HYPERLIQUID = False
-DEFAULT_LEVERAGE = 2.0
-MAX_LEVERAGE = 5.0
-MIRROR_WITH_LEVERAGE = False
-LEVERAGE_SAFETY_BUFFER = 0.8
-
-# Token to Hyperliquid Symbol Mapping
-TOKEN_TO_HL_MAPPING = TOKEN_TO_HL_MAPPING = {
-    # Format: "Solana token address": "Hyperliquid symbol",
-    "So11111111111111111111111111111111111111112": "SOL",
-    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
-    # Add more mappings as needed
-}
+# Risk Agent AI Configuration
+RISK_MODEL_OVERRIDE = "deepseek-reasoner"
+RISK_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API
+RISK_CHECK_INTERVAL_MINUTES = 10
+RISK_LOSS_CONFIDENCE_THRESHOLD = 77# Minimum confidence to override max loss limits (0-100)
+RISK_GAIN_CONFIDENCE_THRESHOLD = 70# Minimum confidence to override max gain limits (0-100)
+RISK_CONTINUOUS_MODE = False# When True, Risk Agent runs continuously instead of on interval
+USE_AI_CONFIRMATION = True#risk agent ai confirmation
 
 # 🛡️ Risk Override Prompt - The Secret Sauce!
 RISK_OVERRIDE_PROMPT = """
@@ -234,15 +249,6 @@ Remember:
 - Provide clear, actionable advice
 """
 
-# Risk Agent AI Configuration
-RISK_MODEL_OVERRIDE = "deepseek-reasoner"
-RISK_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API
-RISK_CHECK_INTERVAL_MINUTES = 10
-RISK_LOSS_CONFIDENCE_THRESHOLD = 77# Minimum confidence to override max loss limits (0-100)
-RISK_GAIN_CONFIDENCE_THRESHOLD = 70# Minimum confidence to override max gain limits (0-100)
-RISK_CONTINUOUS_MODE = False# When True, Risk Agent runs continuously instead of on interval
-
-
 # Specific tokens for DCA Agent
 TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = TOKEN_MAP = {
     'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC': ('AI16Z', 'AI16Z'),
@@ -262,7 +268,6 @@ DCA_MONITORED_TOKENS = [
     'DayN9FxpLAeiVrFQnRxwjKq7iVQxTieVGybhyXvSpump',
 ]
 
-
 # DCA Dynamic Allocation settings
 USE_DYNAMIC_ALLOCATION = False
 TAKE_PROFIT_PERCENTAGE = 206
@@ -276,14 +281,41 @@ DCA_INTERVAL_VALUE = 21
 DCA_RUN_AT_ENABLED = False
 DCA_RUN_AT_TIME = "12:00"
 
+# Add these
+STAKING_PROTOCOLS = ["marinade", "jito"]
+MAX_SLASHING_RISK = 0.5  # Max acceptable slashing risk %
+VALIDATOR_PERFORMANCE_THRESHOLD = 99  # Minimum validator uptime %
+
+# Add Jupiter API settings
+JUPITER_API_URL = "https://quote-api.jup.ag/v6"
+JUPITER_FEE_ACCOUNT = "FG4Y3yX4AAchp1HvNZ7LfzFTewF2f6nDoMDCohTFrdpT"  # For referral fees
+
+# Add these staking configuration options
+STAKING_MODE = 'auto_convert'
+AUTO_CONVERT_THRESHOLD = 13
+MIN_CONVERSION_AMOUNT = 5
+MAX_CONVERT_PERCENTAGE = 25
+
+# Add these in the DCA & Staking settings section of config.py, after YIELD_OPTIMIZATION_INTERVAL
+YIELD_OPTIMIZATION_INTERVAL = 28800
+YIELD_OPTIMIZATION_INTERVAL_UNIT = "Hour(s)"
+YIELD_OPTIMIZATION_INTERVAL_VALUE = 8
+YIELD_OPTIMIZATION_RUN_AT_ENABLED = True
+YIELD_OPTIMIZATION_RUN_AT_TIME = "13:00"
+
+# Advanced DCA settings
+BUY_CONFIDENCE_THRESHOLD = 39
+SELL_CONFIDENCE_THRESHOLD = 85
+BUY_MULTIPLIER = 1.5  # Buy 50% more than standard amount
+MAX_SELL_PERCENTAGE = 25  # Maximum % of holdings to sell (caps at 25%)
+
 MAX_VOLATILITY_THRESHOLD = 0.05  # Maximum volatility threshold for risk-based sizing
 TREND_AWARENESS_THRESHOLD = 50  # RSI threshold for trend awareness
-YIELD_OPTIMIZATION_INTERVAL = 28800
 
 # DCA AI Model override settings
 DCA_MODEL_OVERRIDE = "deepseek-reasoner"
 DCA_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API if using DeepSeek models
-
+ENABLE_STAKING_AI = True
 
 # Updated DCA & Staking AI Prompt with proper variables
 DCA_AI_PROMPT = """
@@ -312,36 +344,6 @@ Your response must include:
 Current staking protocols: marinade, lido, jito
 """
 
-# Add these
-STAKING_PROTOCOLS = ["marinade", "jito"]
-MAX_SLASHING_RISK = 0.5  # Max acceptable slashing risk %
-VALIDATOR_PERFORMANCE_THRESHOLD = 99  # Minimum validator uptime %
-
-# Add Jupiter API settings
-JUPITER_API_URL = "https://quote-api.jup.ag/v6"
-JUPITER_FEE_ACCOUNT = "FG4Y3yX4AAchp1HvNZ7LfzFTewF2f6nDoMDCohTFrdpT"  # For referral fees
-
-# Add these staking configuration options
-STAKING_MODE = 'auto_convert'
-AUTO_CONVERT_THRESHOLD = 13
-MIN_CONVERSION_AMOUNT = 5
-MAX_CONVERT_PERCENTAGE = 25
-
-# Add these in the DCA & Staking settings section of config.py, after YIELD_OPTIMIZATION_INTERVAL
-YIELD_OPTIMIZATION_INTERVAL_UNIT = "Hour(s)"
-YIELD_OPTIMIZATION_INTERVAL_VALUE = 8
-YIELD_OPTIMIZATION_RUN_AT_ENABLED = True
-YIELD_OPTIMIZATION_RUN_AT_TIME = "13:00"
-
-# Advanced DCA settings
-BUY_CONFIDENCE_THRESHOLD = 39
-SELL_CONFIDENCE_THRESHOLD = 85
-BUY_MULTIPLIER = 1.5  # Buy 50% more than standard amount
-MAX_SELL_PERCENTAGE = 25  # Maximum % of holdings to sell (caps at 25%)
-
-ENABLE_CHART_ANALYSIS = True
-ENABLE_STAKING_AI = True
-
 # Chart Analysis Agent Settings 📊
 CHART_ANALYSIS_INTERVAL_MINUTES = 180  # Renamed from CHECK_INTERVAL_MINUTES and changed default value
 CHART_INTERVAL_UNIT = "Hour(s)"
@@ -357,12 +359,12 @@ CHART_VOLUME_PANEL = True
 # Fibonacci retracement settings
 ENABLE_FIBONACCI = True
 FIBONACCI_LEVELS = [0.236, 0.382, 0.5, 0.618, 0.786]
-# How far back to look for swing high/low points for Fibonacci calculation
-FIBONACCI_LOOKBACK_PERIODS = 60
+FIBONACCI_LOOKBACK_PERIODS = 60 # How far back to look for swing high/low points for Fibonacci calculation
 
 # Chart Analysis AI Settings
 CHART_MODEL_OVERRIDE = "deepseek-reasoner"
 CHART_DEEPSEEK_BASE_URL = "https://api.deepseek.com"  # Base URL for DeepSeek API
+ENABLE_CHART_ANALYSIS = True
 
 # Voice Announcement Settings for Chart Agent
 VOICE_MODEL = "tts-1"  # OpenAI TTS model
@@ -414,11 +416,5 @@ EXIT_ALL_POSITIONS = False
 DO_NOT_TRADE_LIST = ['777']
 CLOSED_POSITIONS_TXT = '777'
 minimum_trades_in_last_hour = 777
-
-# Global AI Model Settings (used as fallbacks)
-AI_MODEL = "claude-3-haiku-20240307"
-AI_TEMPERATURE = 0.7
-AI_MAX_TOKENS = 1024
-
 
 priority_fee = 100006
