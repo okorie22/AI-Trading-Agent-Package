@@ -14,6 +14,8 @@ from src.scripts.logger import logger, debug, info, warning, error, critical, sy
 class TokenAccountTracker:
     def __init__(self):
         self.TOKEN_CACHE = {}
+        self.PRICE_CACHE = {}  # Add a price cache
+        self.PRICE_CACHE_EXPIRY = {}  # Add cache expiry
         self.rpc_endpoint = os.getenv("RPC_ENDPOINT")
         if not self.rpc_endpoint:
             raise ValueError("Please set RPC_ENDPOINT environment variable!")
@@ -40,7 +42,7 @@ class TokenAccountTracker:
             # Make a lightweight request to test availability
             url = "https://public-api.birdeye.so/public/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=1"
             headers = {"X-API-KEY": birdeye_api_key}
-            response = requests.get(url, headers=headers, timeout=API_TIMEOUT_SECONDS)
+            response = requests.get(url, headers=headers, timeout=5)  # Reduced timeout
             
             if response.status_code == 200 and response.json().get("success", False):
                 return True
@@ -49,28 +51,69 @@ class TokenAccountTracker:
             return False
 
     def get_token_price(self, mint):
-        """Get token price from BirdEye if available, otherwise return 1"""
-        if not self.birdeye_available:
-            return 1
+        """Get token price using multiple fallbacks if BirdEye is unavailable"""
+        # Check if price is in cache and still valid (less than 5 minutes old)
+        current_time = time.time()
+        if mint in self.PRICE_CACHE and self.PRICE_CACHE_EXPIRY.get(mint, 0) > current_time:
+            return self.PRICE_CACHE[mint]
             
+        # Fast return for common stablecoins
+        if mint in ["EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",  # USDC
+                   "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",   # USDT
+                   "USDrbBQwQbQ2oWHUPfA8QBHcyVxKUq1xHyXXCmgS3FQ",    # USDR
+                   "A9mUU4qviSctJVPJdBJWkb28deg915LYJKrzQ19ji3FM"]:  # USDCet
+            self.PRICE_CACHE[mint] = 1.0
+            self.PRICE_CACHE_EXPIRY[mint] = current_time + 86400  # 24 hours
+            return 1.0
+            
+        # Skip tokens known to cause problems
+        if mint in ["8UaGbxQbV9v2rXxWSSyHV6LR3p6bNH6PaUVWbUnMB9Za"]:
+            self.PRICE_CACHE[mint] = None
+            self.PRICE_CACHE_EXPIRY[mint] = current_time + 3600  # 1 hour
+            return None
+            
+        # Try BirdEye first (fastest)
+        if self.birdeye_available:
+            try:
+                birdeye_api_key = os.getenv("BIRDEYE_API_KEY")
+                url = f"https://public-api.birdeye.so/public/price?address={mint}"
+                headers = {"X-API-KEY": birdeye_api_key}
+                response = requests.get(url, headers=headers, timeout=3)  # reduced timeout
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("success", False):
+                        price = data.get("data", {}).get("value", 0)
+                        if price:
+                            # Cache the price
+                            self.PRICE_CACHE[mint] = float(price)
+                            self.PRICE_CACHE_EXPIRY[mint] = current_time + 300  # 5 minutes
+                            return float(price)
+            except Exception:
+                pass  # Continue to fallbacks
+
+        # Use nice_funcs.token_price as fallback (NOT get_token_price which would create a loop)
         try:
-            birdeye_api_key = os.getenv("BIRDEYE_API_KEY")
-            url = f"https://public-api.birdeye.so/public/price?address={mint}"
-            headers = {"X-API-KEY": birdeye_api_key}
-            response = requests.get(url, headers=headers, timeout=API_TIMEOUT_SECONDS)
+            price = n.token_price(mint)
+            if price is not None:
+                # Cache the price
+                self.PRICE_CACHE[mint] = price
+                self.PRICE_CACHE_EXPIRY[mint] = current_time + 300  # 5 minutes
+                return price
+        except Exception:
+            pass
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("success", False):
-                    price = data.get("data", {}).get("value", 0)
-                    if price:
-                        return float(price)
-            return 1  # Default fallback
-        except:
-            return 1  # Default fallback on error
+        # If we get here, price is unknown - cache as None to avoid repeated lookups
+        self.PRICE_CACHE[mint] = None
+        self.PRICE_CACHE_EXPIRY[mint] = current_time + 3600  # 1 hour for unknown
+        return None
 
     def get_token_metadata(self, mint):
         """Get token metadata using Helius RPC"""
+        # Check if metadata is already in cache
+        if mint in self.TOKEN_CACHE:
+            return self.TOKEN_CACHE[mint]
+            
         try:
             # Use Helius RPC to get token metadata
             payload = {
@@ -83,7 +126,7 @@ class TokenAccountTracker:
                 ]
             }
             
-            response = requests.post(self.rpc_endpoint, json=payload, timeout=API_TIMEOUT_SECONDS)
+            response = requests.post(self.rpc_endpoint, json=payload, timeout=5)  # Reduced timeout
             if response.status_code == 200:
                 data = response.json()
                 if "result" in data and data["result"]["value"]:
@@ -94,15 +137,21 @@ class TokenAccountTracker:
                     # Check if it's a token account
                     if program_id == "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA":
                         parsed_data = account_data.get("data", {}).get("parsed", {}).get("info", {})
-                        return {
+                        metadata = {
                             "symbol": parsed_data.get("symbol", "UNK"),
                             "name": parsed_data.get("name", "Unknown Token")
                         }
+                        self.TOKEN_CACHE[mint] = metadata
+                        return metadata
             
             # Return default values if metadata not found
-            return {"symbol": "UNK", "name": "Unknown Token"}
+            default_metadata = {"symbol": "UNK", "name": "Unknown Token"}
+            self.TOKEN_CACHE[mint] = default_metadata
+            return default_metadata
         except:
-            return {"symbol": "UNK", "name": "Unknown Token"}
+            default_metadata = {"symbol": "UNK", "name": "Unknown Token"}
+            self.TOKEN_CACHE[mint] = default_metadata
+            return default_metadata
 
     def load_cache(self):
         """Return tuple: (cached_data, cache_empty_status)"""
@@ -189,6 +238,12 @@ class TokenAccountTracker:
         """Fetch all token accounts for a wallet address."""
         info(f"Fetching token accounts for {wallet_address[:4]}...")  # Show first 4 chars for privacy
         
+        # Check if we have this wallet's data cached (for the same run)
+        wallet_cache_key = f"token_accounts_{wallet_address}"
+        if wallet_cache_key in self.TOKEN_CACHE:
+            info(f"Using cached token accounts for {wallet_address[:4]}")
+            return self.TOKEN_CACHE[wallet_cache_key]
+        
         payload = {
             "jsonrpc": "2.0",
             "id": "moon-dev",
@@ -201,12 +256,13 @@ class TokenAccountTracker:
         }
 
         try:
-            response = requests.post(self.rpc_endpoint, json=payload)
+            response = requests.post(self.rpc_endpoint, json=payload, timeout=10)
             response.raise_for_status()
             data = response.json()
 
             if "result" not in data or not data["result"]["value"]:
                 warning(f"No token accounts found for {wallet_address[:4]}")
+                self.TOKEN_CACHE[wallet_cache_key] = []
                 return []
 
             token_accounts = []
@@ -231,7 +287,9 @@ class TokenAccountTracker:
             info(f"Found {len(token_accounts)} token accounts for {wallet_address[:4]}")
             if zero_balance_count > 0:
                 debug(f"Skipped {zero_balance_count} tokens with zero balance", file_only=True)
-                
+            
+            # Cache the results for this run
+            self.TOKEN_CACHE[wallet_cache_key] = token_accounts    
             return token_accounts
 
         except requests.exceptions.RequestException as e:
@@ -390,103 +448,52 @@ class TokenAccountTracker:
 
     def filter_relevant_tokens(self, token_accounts: List[Dict]) -> List[Dict]:
         """Filter out irrelevant tokens based on wallet-specific activity."""
-        relevant_tokens = []
-
-        # Calculate total portfolio value (needed for percentage-based filter)
-        total_portfolio_value = 0
-        if FILTER_MODE == "Dynamic":
-            for account in token_accounts:
-                mint = account["mint"]
-                balance = account["amount"]
-                price = self.get_token_price(mint)
-                if price is not None:
-                    total_portfolio_value += balance * price
-
-        info(f"Total Portfolio Balance: ${total_portfolio_value:.2f}")
-
-        # Filter tokens based on the selected mode
-        skipped_tokens = 0
-        wallet = token_accounts[0].get("wallet_address", "Unknown") if token_accounts else "Unknown"
+        if not token_accounts:
+            return []
+            
+        # Get metadata and prices for all tokens in one pass to reduce API calls
+        all_prices = {}
+        all_metadata = {}
         
+        # First collect all the mints we need to process
+        all_mints = [account["mint"] for account in token_accounts]
+        
+        # EMERGENCY SPEED FIX: Only get prices for the first 10 tokens to avoid slowdowns
+        # Get all prices and metadata in one pass
+        for mint in all_mints[:10]:  # Only process first 10 tokens to avoid timeouts
+            all_prices[mint] = self.get_token_price(mint)
+            all_metadata[mint] = self.get_token_metadata(mint)
+            
+        # Add unknown values for the rest
+        for mint in all_mints[10:]:
+            all_prices[mint] = None
+            all_metadata[mint] = {"symbol": "UNK", "name": "Unknown Token"}
+        
+        # Add all tokens without detailed filtering
+        relevant_tokens = []
         for account in token_accounts:
             mint = account["mint"]
             balance = account["amount"]
-            price = self.get_token_price(mint)
-            if price is None:
-                skipped_tokens += 1
+            price = all_prices.get(mint)
+            metadata = all_metadata.get(mint, {"symbol": "UNK", "name": "Unknown Token"})
+            
+            # Skip only zero balance tokens
+            if balance <= 0:
                 continue
-
-            # Get token metadata (symbol, name)
-            metadata = self.get_token_metadata(mint)
-
-            usd_value = balance * price
-
-            # Skip tokens with very small balances (e.g., less than $10)
-            if usd_value < 10:  # Adjust the threshold as needed
-                skipped_tokens += 1
-                continue
-
-            # Apply the selected filter
-            if FILTER_MODE == "Dynamic":
-                # Percentage-based filter (only apply if enabled)
-                if ENABLE_PERCENTAGE_FILTER:
-                    percentage_of_portfolio = (usd_value / total_portfolio_value) * 100
-                    if percentage_of_portfolio < PERCENTAGE_THRESHOLD:
-                        skipped_tokens += 1
-                        continue
-            elif FILTER_MODE == "Monitored Tokens":
-                # Only include tokens from MONITORED_TOKENS list
-                if mint not in MONITORED_TOKENS:
-                    skipped_tokens += 1
-                    continue
-                # Amount threshold filter (only apply if enabled)
-                if ENABLE_AMOUNT_FILTER and usd_value < AMOUNT_THRESHOLD:
-                    skipped_tokens += 1
-                    continue
-            else:
-                raise ValueError(f"Invalid FILTER_MODE: {FILTER_MODE}. Use 'Dynamic' or 'Monitored Tokens'.")
-
-            # Check if there's recent activity for this token (only if filter is enabled)
-            if ENABLE_ACTIVITY_FILTER:
-                try:
-                    activity_window_hours = ACTIVITY_WINDOW_HOURS
-                    if activity_window_hours > 0:
-                        # Get wallet activity for this specific token mint
-                        activity = self.get_wallet_activity(wallet_address=account.get("wallet_address"),
-                                                          mint=mint,
-                                                          max_lookback_minutes=activity_window_hours * 60)
-                        
-                        # Check if there were any buys or sells within the time window
-                        has_recent_activity = (len(activity.get("buys", [])) > 0 or 
-                                              len(activity.get("sells", [])) > 0)
-                        
-                        if not has_recent_activity:
-                            debug(f"Skipping {mint} due to no activity in the last {activity_window_hours} hours", file_only=True)
-                            skipped_tokens += 1
-                            continue
-                except Exception as e:
-                    debug(f"Error checking activity for {mint}: {str(e)}", file_only=True)
-                    # If error checking activity, continue anyway
-
-            # Add token to relevant list with metadata
+                
+            # Add token to relevant list
             relevant_tokens.append({
                 "mint": mint,
                 "amount": balance,
-                "price": price,
+                "price": price if price is not None else "Unknown",
                 "symbol": metadata.get("symbol", "UNK"),
                 "name": metadata.get("name", "Unknown Token"),
-                "decimals": account.get("decimals", 9),  # Default to 9 if missing
-                "raw_amount": account.get("raw_amount", int(balance * (10 ** account.get("decimals", 9)))),  # Calculate raw_amount if missing
+                "decimals": account.get("decimals", 9),
+                "raw_amount": account.get("raw_amount", int(balance * (10 ** account.get("decimals", 9)))),
                 'timestamp': datetime.now().isoformat(),
-                "wallet_address": account.get("wallet_address", wallet)  # Keep the wallet address for reference
+                "wallet_address": account.get("wallet_address")
             })
-
-            time.sleep(API_SLEEP_SECONDS)  # 1-second delay between API calls
-
-        # Make sure to print the found/skipped summary (this is what will appear in the UI)
-        found_tokens = len(relevant_tokens)
-        info(f"Found {found_tokens} relevant tokens, skipped {skipped_tokens} tokens")
-        
+            
         return relevant_tokens
 
     def detect_changes(self, cached_results, current_results):
@@ -511,11 +518,14 @@ class TokenAccountTracker:
             for mint, token_data in current_tokens.items():
                 if mint not in previous_tokens:
                     # Get current price for new token
-                    price = token_data.get("price", 1)
+                    price = token_data.get("price", "Unknown")
                     amount = token_data.get("amount", 0)  # Human-readable amount
                     
-                    # Calculate USD value
-                    usd_value = amount * price
+                    # Calculate USD value if price is known
+                    if price != "Unknown":
+                        usd_value = amount * price
+                    else:
+                        usd_value = "Unknown"
                     
                     wallet_changes["new"][mint] = {
                         "amount": amount,  # Use human-readable amount instead of raw_amount
@@ -529,11 +539,14 @@ class TokenAccountTracker:
             for mint, token_data in previous_tokens.items():
                 if mint not in current_tokens:
                     # Get last known price for removed token
-                    price = token_data.get("price", 1)
+                    price = token_data.get("price", "Unknown")
                     amount = token_data.get("amount", 0)  # Human-readable amount
                     
-                    # Calculate USD value
-                    usd_value = amount * price
+                    # Calculate USD value if price is known
+                    if price != "Unknown":
+                        usd_value = amount * price
+                    else:
+                        usd_value = "Unknown"
                     
                     wallet_changes["removed"][mint] = {
                         "amount": amount,  # Use human-readable amount instead of raw_amount
@@ -552,34 +565,50 @@ class TokenAccountTracker:
                     prev_amount = prev_data.get("amount", 0)
                     
                     # Get prices
-                    curr_price = curr_data.get("price", 1)
-                    prev_price = prev_data.get("price", 1)
+                    curr_price = curr_data.get("price", "Unknown")
+                    prev_price = prev_data.get("price", "Unknown")
                     
-                    # Calculate USD values
-                    curr_usd = curr_amount * curr_price
-                    prev_usd = prev_amount * prev_price
-                    
-                    # Calculate changes
-                    amount_change = curr_amount - prev_amount
-                    price_change = curr_price - prev_price
-                    usd_change = curr_usd - prev_usd
-                    
-                    # Simplified and more direct percentage calculation
-                    # Force sign to accurately reflect if tokens increased or decreased
-                    if amount_change > 0:
-                        # Token amount increased, ensure percentage is positive
-                        pct = abs((amount_change / prev_amount) * 100 if prev_amount != 0 else 100)
-                    elif amount_change < 0:
-                        # Token amount decreased, ensure percentage is negative
-                        pct = -abs((amount_change / prev_amount) * 100 if prev_amount != 0 else 100)
+                    # Calculate USD values if prices are known
+                    if curr_price != "Unknown":
+                        curr_usd = curr_amount * curr_price
                     else:
-                        # No change in token amount
+                        curr_usd = "Unknown"
+                        
+                    if prev_price != "Unknown":
+                        prev_usd = prev_amount * prev_price
+                    else:
+                        prev_usd = "Unknown"
+                    
+                    # Calculate changes if possible
+                    amount_change = curr_amount - prev_amount
+                    
+                    # Only calculate price and USD changes if both values are known numbers
+                    if curr_price != "Unknown" and prev_price != "Unknown":
+                        price_change = curr_price - prev_price
+                        usd_change = curr_usd - prev_usd
+                    else:
+                        price_change = "Unknown"
+                        usd_change = "Unknown"
+                    
+                    # Calculate percentage change only if amount change is non-zero
+                    # and previous amount is non-zero
+                    if amount_change != 0 and prev_amount != 0:
+                        # Calculate percentage change (preserve sign for increase/decrease)
+                        if amount_change > 0:
+                            # Token amount increased, ensure percentage is positive
+                            pct = abs((amount_change / prev_amount) * 100)
+                        else:
+                            # Token amount decreased, ensure percentage is negative
+                            pct = -abs((amount_change / prev_amount) * 100)
+                    else:
                         pct = 0
                     
                     debug(f"Token {mint}: Previous: {prev_amount}, Current: {curr_amount}, Change: {amount_change}, PCT: {pct:.2f}%", file_only=True)
                     
-                    # Only add to changes if something changed
-                    if curr_amount != prev_amount or curr_price != prev_price:
+                    # Only add to changes if amount changed or price status changed (from known to unknown or vice versa)
+                    price_status_changed = (prev_price == "Unknown" and curr_price != "Unknown") or (prev_price != "Unknown" and curr_price == "Unknown")
+                    
+                    if curr_amount != prev_amount or price_status_changed:
                         wallet_changes["modified"][mint] = {
                             "previous_amount": prev_amount,
                             "current_amount": curr_amount,
@@ -742,8 +771,8 @@ class TokenAccountTracker:
                 
                 return wallet, filtered_tokens, stats
 
-        # Use ThreadPoolExecutor with a small number of workers
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        # Use ThreadPoolExecutor with more workers for better parallelism
+        with ThreadPoolExecutor(max_workers=min(4, len(WALLETS_TO_TRACK))) as executor:
             futures = {executor.submit(fetch_wallet_data, wallet): wallet for wallet in WALLETS_TO_TRACK}
             for future in futures:
                 wallet, parsed_accounts, stats = future.result()

@@ -76,32 +76,30 @@ WALLETS_TO_TRACK = WALLETS_TO_TRACK = [
 # CopyBot Runtime Mode
 COPYBOT_CONTINUOUS_MODE = False
 COPYBOT_INTERVAL_MINUTES = 5
-COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN = False
+COPYBOT_SKIP_ANALYSIS_ON_FIRST_RUN = True
+
+# API and Network Settings 🌐
+API_SLEEP_SECONDS = 1
+API_TIMEOUT_SECONDS = 15
+API_MAX_RETRIES = 5
 
 #CopyBot Settings
 FILTER_MODE = "Dynamic"
-PERCENTAGE_THRESHOLD = 0.1
-AMOUNT_THRESHOLD = 6000
-ENABLE_PERCENTAGE_FILTER = True
-ENABLE_AMOUNT_FILTER = True
-ENABLE_ACTIVITY_FILTER = False
+PERCENTAGE_THRESHOLD = 0.01
+AMOUNT_THRESHOLD = 1000
 ACTIVITY_WINDOW_HOURS = 1
-
-# CopyBot Mirror Trading Settings
-COPYBOT_AUTO_BUY_NEW_TOKENS = True  # Auto-buy new tokens in mirror mode
-COPYBOT_AUTO_SELL_REMOVED_TOKENS = True  # Auto-sell removed tokens
-COPYBOT_WALLET_ACTION_WEIGHT = 0.6
-COPYBOT_MIRROR_EXACT_PERCENTAGE = True  # Mirror exact percentage changes from tracked wallets
-
-# API and Network Settings 🌐
-API_SLEEP_SECONDS = 1.8
-API_TIMEOUT_SECONDS = 37
-API_MAX_RETRIES = 10
+ENABLE_PERCENTAGE_FILTER = False
+ENABLE_AMOUNT_FILTER = False
+ENABLE_ACTIVITY_FILTER = False
 
 # Model override settings for CopyBot
 COPYBOT_MODEL_OVERRIDE = "deepseek-reasoner"
-COPYBOT_MIN_CONFIDENCE = 79
 ENABLE_AI_ANALYSIS = True# Toggle for AI analysis in CopyBot
+COPYBOT_AUTO_BUY_NEW_TOKENS = True  # Auto-buy new tokens in mirror mode
+COPYBOT_AUTO_SELL_REMOVED_TOKENS = True  # Auto-sell removed tokens
+COPYBOT_WALLET_ACTION_WEIGHT = 0.6
+COPYBOT_MIN_CONFIDENCE = 75
+COPYBOT_MIRROR_EXACT_PERCENTAGE = True  # Mirror exact percentage changes from tracked wallets
 
 # CopyBot Portfolio Analysis Prompt - The AI prompt template for analysis
 PORTFOLIO_ANALYSIS_PROMPT = """

@@ -13,9 +13,9 @@ def test_orca_api():
     sol_address = "So11111111111111111111111111111111111111112"
     usdc_address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
     
-    # Test Orca Whirlpools price API
-    print("\nTest 1: Orca Whirlpools Price API")
-    price_url = f"https://api.mainnet.orca.so/v1/whirlpool/token/price?mint={sol_address}"
+    # Test Orca Token API
+    print("\nTest 1: Orca Token API for SOL")
+    price_url = f"https://api.orca.so/v2/solana/token?address={sol_address}"
     print(f"URL: {price_url}")
     
     try:
@@ -29,23 +29,23 @@ def test_orca_api():
             data = response.json()
             print(f"Response Data: {json.dumps(data, indent=2)}")
             
-            # Check if price data exists using the new format
-            if 'data' in data and 'price' in data.get('data', {}):
-                price = data['data']['price']
-                print(f"SOL Price: ${price}")
-            elif 'price' in data:
+            # Check if price data exists
+            if 'price' in data:
                 price = data['price']
+                print(f"SOL Price: ${price}")
+            elif 'value' in data:
+                price = data['value']
                 print(f"SOL Price (alt format): ${price}")
             else:
                 print("No price data found in response")
         else:
             print(f"Error Response: {response.text[:200]}")
     except Exception as e:
-        print(f"Error testing Orca Price API: {str(e)}")
+        print(f"Error testing Orca Token API: {str(e)}")
     
     # Test with USDC
-    print("\nTest 2: Orca Whirlpools Price API with USDC")
-    price_url = f"https://api.mainnet.orca.so/v1/whirlpool/token/price?mint={usdc_address}"
+    print("\nTest 2: Orca Token API for USDC")
+    price_url = f"https://api.orca.so/v2/solana/token?address={usdc_address}"
     print(f"URL: {price_url}")
     
     try:
@@ -55,53 +55,44 @@ def test_orca_api():
         if response.status_code == 200:
             data = response.json()
             print(f"Response Data: {json.dumps(data, indent=2)}")
+            
+            # Check if price data exists
+            if 'price' in data:
+                price = data['price']
+                print(f"USDC Price: ${price}")
+            elif 'value' in data:
+                price = data['value']
+                print(f"USDC Price (alt format): ${price}")
+            else:
+                print("No price data found in response")
         else:
             print(f"Error Response: {response.text[:200]}")
     except Exception as e:
         print(f"Error testing Orca API with USDC: {str(e)}")
     
-    # Test BitQuery as a fallback for Orca data (for SOL specifically)
-    print("\nTest 3: BitQuery GraphQL API for Orca Whirlpools data")
-    bitquery_url = "https://streaming.bitquery.io/graphql"
-    print(f"URL: {bitquery_url}")
-    
-    query = """
-    query {
-      Solana {
-        DEXTradeByTokens(
-          where: {Trade: {Currency: {MintAddress: {is: "So11111111111111111111111111111111111111112"}}, 
-                          Dex: {ProgramAddress: {is: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"}}}}
-          limit: 1
-          orderBy: {descending: Block_Time}
-        ) {
-          Trade {
-            PriceAgainstSideCurrency: Price
-          }
-        }
-      }
-    }
-    """
+    # Test general token endpoint
+    print("\nTest 3: Orca Tokens List API")
+    tokens_url = "https://api.orca.so/v2/solana/tokens"
+    print(f"URL: {tokens_url}")
     
     try:
-        headers = {"Content-Type": "application/json"}
-        response = requests.post(bitquery_url, json={"query": query}, headers=headers, timeout=15)
+        response = requests.get(tokens_url, timeout=10)
         print(f"Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            # Print a more focused view of the result
-            if "data" in data and "Solana" in data["data"] and "DEXTradeByTokens" in data["data"]["Solana"]:
-                trades = data["data"]["Solana"]["DEXTradeByTokens"]
-                if trades and len(trades) > 0:
-                    print(f"Latest SOL price from Orca Whirlpools via BitQuery: {trades[0]['Trade']['PriceAgainstSideCurrency']}")
-                else:
-                    print("No trade data found")
+            # Just print count to avoid overwhelming output
+            if isinstance(data, list):
+                print(f"Found {len(data)} tokens")
+                # Print first token as sample
+                if len(data) > 0:
+                    print(f"Sample token: {json.dumps(data[0], indent=2)}")
             else:
                 print(f"Response Data: {json.dumps(data, indent=2)}")
         else:
             print(f"Error Response: {response.text[:200]}")
     except Exception as e:
-        print(f"Error testing BitQuery API: {str(e)}")
+        print(f"Error testing Orca Tokens API: {str(e)}")
     
     print("\nTest completed. Check results above to verify connectivity.")
     print("If you're having issues, check the following:")
